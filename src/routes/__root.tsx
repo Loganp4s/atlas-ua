@@ -77,22 +77,26 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Atlas — Organize sua vida" },
+      { title: "Lovable App" },
       {
         name: "description",
         content:
-          "Atlas é um assistente pessoal para organizar finanças, rotina, objetivos e qualidade de vida em um só lugar.",
+          "Atlas is a personal life organization assistant that helps users manage finances, routine, goals, and productivity.",
       },
       { name: "author", content: "Atlas" },
-      { property: "og:title", content: "Atlas — Organize sua vida" },
+      { property: "og:title", content: "Lovable App" },
       {
         property: "og:description",
         content:
-          "Um assistente pessoal para viver de forma mais organizada: finanças, rotina, objetivos e qualidade de vida.",
+          "Atlas is a personal life organization assistant that helps users manage finances, routine, goals, and productivity.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Lovable App" },
+      { name: "twitter:description", content: "Atlas is a personal life organization assistant that helps users manage finances, routine, goals, and productivity." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8035d623-9432-4758-936e-b9dd6b9618aa/id-preview-ef23d5ba--b087b795-42ca-426d-8d69-fd12d4a903af.lovable.app-1784259708360.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8035d623-9432-4758-936e-b9dd6b9618aa/id-preview-ef23d5ba--b087b795-42ca-426d-8d69-fd12d4a903af.lovable.app-1784259708360.png" },
     ],
     links: [
       {

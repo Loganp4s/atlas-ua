@@ -5,10 +5,10 @@ import { AppShell, Card } from "@/components/atlas/AppShell";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Início — Atlas" },
+      { title: "Lovable App" },
       {
         name: "description",
-        content: "Sua visão geral no Atlas: rotina, finanças e objetivos em um só lugar.",
+        content: "Atlas is a personal life organization assistant that helps users manage finances, routine, goals, and productivity.",
       },
     ],
   }),
