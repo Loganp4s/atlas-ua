@@ -9,123 +9,27 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as RotinaRouteImport } from './routes/rotina'
-import { Route as PerfilRouteImport } from './routes/perfil'
-import { Route as ObjetivosRouteImport } from './routes/objetivos'
-import { Route as FinanceiroRouteImport } from './routes/financeiro'
-import { Route as IndexRouteImport } from './routes/index'
 
-const RotinaRoute = RotinaRouteImport.update({
-  id: '/rotina',
-  path: '/rotina',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PerfilRoute = PerfilRouteImport.update({
-  id: '/perfil',
-  path: '/perfil',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ObjetivosRoute = ObjetivosRouteImport.update({
-  id: '/objetivos',
-  path: '/objetivos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FinanceiroRoute = FinanceiroRouteImport.update({
-  id: '/financeiro',
-  path: '/financeiro',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-
-export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/financeiro': typeof FinanceiroRoute
-  '/objetivos': typeof ObjetivosRoute
-  '/perfil': typeof PerfilRoute
-  '/rotina': typeof RotinaRoute
-}
-export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/financeiro': typeof FinanceiroRoute
-  '/objetivos': typeof ObjetivosRoute
-  '/perfil': typeof PerfilRoute
-  '/rotina': typeof RotinaRoute
-}
+export interface FileRoutesByFullPath {}
+export interface FileRoutesByTo {}
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/financeiro': typeof FinanceiroRoute
-  '/objetivos': typeof ObjetivosRoute
-  '/perfil': typeof PerfilRoute
-  '/rotina': typeof RotinaRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/financeiro' | '/objetivos' | '/perfil' | '/rotina'
+  fullPaths: never
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/financeiro' | '/objetivos' | '/perfil' | '/rotina'
-  id: '__root__' | '/' | '/financeiro' | '/objetivos' | '/perfil' | '/rotina'
+  to: never
+  id: '__root__'
   fileRoutesById: FileRoutesById
 }
-export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  FinanceiroRoute: typeof FinanceiroRoute
-  ObjetivosRoute: typeof ObjetivosRoute
-  PerfilRoute: typeof PerfilRoute
-  RotinaRoute: typeof RotinaRoute
-}
+export interface RootRouteChildren {}
 
 declare module '@tanstack/react-router' {
-  interface FileRoutesByPath {
-    '/rotina': {
-      id: '/rotina'
-      path: '/rotina'
-      fullPath: '/rotina'
-      preLoaderRoute: typeof RotinaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/perfil': {
-      id: '/perfil'
-      path: '/perfil'
-      fullPath: '/perfil'
-      preLoaderRoute: typeof PerfilRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/objetivos': {
-      id: '/objetivos'
-      path: '/objetivos'
-      fullPath: '/objetivos'
-      preLoaderRoute: typeof ObjetivosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/financeiro': {
-      id: '/financeiro'
-      path: '/financeiro'
-      fullPath: '/financeiro'
-      preLoaderRoute: typeof FinanceiroRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-  }
+  interface FileRoutesByPath {}
 }
 
-const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  FinanceiroRoute: FinanceiroRoute,
-  ObjetivosRoute: ObjetivosRoute,
-  PerfilRoute: PerfilRoute,
-  RotinaRoute: RotinaRoute,
-}
+const rootRouteChildren: RootRouteChildren = {}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
