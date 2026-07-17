@@ -77,14 +77,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
+      { title: "Atlas — Organize sua vida com calma" },
       {
         name: "description",
         content:
           "Atlas is a personal life organization assistant that helps users manage finances, routine, goals, and productivity.",
       },
       { name: "author", content: "Atlas" },
-      { property: "og:title", content: "Lovable App" },
+      { property: "og:title", content: "Atlas — Organize sua vida com calma" },
       {
         property: "og:description",
         content:
@@ -93,7 +93,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
-      { name: "twitter:title", content: "Lovable App" },
+      { name: "twitter:title", content: "Atlas — Organize sua vida com calma" },
       { name: "twitter:description", content: "Atlas is a personal life organization assistant that helps users manage finances, routine, goals, and productivity." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8035d623-9432-4758-936e-b9dd6b9618aa/id-preview-ef23d5ba--b087b795-42ca-426d-8d69-fd12d4a903af.lovable.app-1784259708360.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8035d623-9432-4758-936e-b9dd6b9618aa/id-preview-ef23d5ba--b087b795-42ca-426d-8d69-fd12d4a903af.lovable.app-1784259708360.png" },
@@ -108,7 +108,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap",
       },
     ],
   }),

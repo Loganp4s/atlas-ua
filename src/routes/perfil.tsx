@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { User, Settings, Palette, ShieldCheck, ChevronRight } from "lucide-react";
-import type { ComponentType, SVGProps } from "react";
-import { AppShell, PageHeader, Card } from "@/components/atlas/AppShell";
+import { useEffect, useState } from "react";
+import { User, Check } from "lucide-react";
+import { AppShell, Card, PageHeader } from "@/components/atlas/AppShell";
+import { useProfile } from "@/hooks/useAtlas";
 
 export const Route = createFileRoute("/perfil")({
   head: () => ({
@@ -13,53 +14,75 @@ export const Route = createFileRoute("/perfil")({
   component: PerfilPage,
 });
 
-type Row = {
-  label: string;
-  Icon: ComponentType<SVGProps<SVGSVGElement>>;
-};
-
-const rows: Row[] = [
-  { label: "Configurações", Icon: Settings },
-  { label: "Tema", Icon: Palette },
-  { label: "Conta", Icon: ShieldCheck },
-];
-
 function PerfilPage() {
+  const { profile, updateProfile } = useProfile();
+  const [name, setName] = useState(profile.name);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setName(profile.name);
+  }, [profile.name]);
+
+  function save(e: React.FormEvent) {
+    e.preventDefault();
+    updateProfile({ name: name.trim() });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1400);
+  }
+
+  const initial = (profile.name.trim()[0] || "").toUpperCase();
+
   return (
     <AppShell>
-      <PageHeader eyebrow="Você" title="Perfil" />
+      <PageHeader eyebrow="Você" title="Perfil" description="Personalize sua experiência no Atlas." />
 
       <Card className="mb-6 flex items-center gap-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-muted-foreground">
-          <User className="h-6 w-6" strokeWidth={1.5} />
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-foreground">
+          {initial ? (
+            <span className="font-display text-xl font-medium">{initial}</span>
+          ) : (
+            <User className="h-6 w-6" strokeWidth={1.5} />
+          )}
         </div>
         <div className="min-w-0">
           <p className="truncate font-display text-lg font-medium text-foreground">
-            Seu nome
+            {profile.name || "Seu nome"}
           </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">Perfil ainda não configurado</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {profile.name ? "Bem-vindo ao Atlas" : "Diga como devemos te chamar"}
+          </p>
         </div>
       </Card>
 
-      <ul className="overflow-hidden rounded-2xl border border-border/70 bg-card">
-        {rows.map(({ label, Icon }, i) => (
-          <li
-            key={label}
-            className={
-              "flex items-center justify-between px-4 py-4 " +
-              (i < rows.length - 1 ? "border-b border-border/60" : "")
-            }
-          >
-            <span className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-foreground">
-                <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
-              </span>
-              <span className="text-sm font-medium text-foreground">{label}</span>
+      <form onSubmit={save} className="rounded-2xl border border-border/70 bg-card p-4">
+        <label htmlFor="name" className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          Como devemos te chamar?
+        </label>
+        <input
+          id="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Seu nome"
+          className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none"
+        />
+        <div className="mt-3 flex items-center justify-end gap-2">
+          {saved ? (
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <Check className="h-3.5 w-3.5" strokeWidth={2} /> salvo
             </span>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
-          </li>
-        ))}
-      </ul>
+          ) : null}
+          <button
+            type="submit"
+            className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            Salvar
+          </button>
+        </div>
+      </form>
+
+      <p className="mt-6 px-1 text-center text-xs text-muted-foreground">
+        Suas informações ficam no seu dispositivo. Sincronização em nuvem chegará em breve.
+      </p>
     </AppShell>
   );
 }
