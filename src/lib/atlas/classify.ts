@@ -150,8 +150,39 @@ const ROUTINE_HINTS = [
   /\bdiariamente\b/,
   /\bsempre\s+que\b/,
   /\btoda\s+semana\b/,
+  /\bsemanalmente\b/,
+  /\btoda\s+manha\b/,
+  /\btoda\s+noite\b/,
+  /\btoda\s+tarde\b/,
   /\bhabito\b/,
+  /\bhabitos?\b/,
+  /\bcriar\s+o\s+habito\b/,
   /\brotina\b/,
+];
+
+/**
+ * Verbs that, on their own, describe repeated wellbeing / self-improvement
+ * actions. When present without a date/time, we treat the input as a habit.
+ */
+const HABIT_VERBS: Array<{ re: RegExp; goal: string }> = [
+  { re: /\bcorrer\b/, goal: "Ganhar resistência e movimentar o corpo" },
+  { re: /\bcaminhar\b/, goal: "Caminhar todos os dias" },
+  { re: /\btreinar\b/, goal: "Manter uma rotina de treinos" },
+  { re: /\bexercitar/, goal: "Manter o corpo em movimento" },
+  { re: /\bmalhar\b/, goal: "Manter uma rotina de treinos" },
+  { re: /\bacademia\b/, goal: "Frequentar a academia com constância" },
+  { re: /\bmeditar\b/, goal: "Cultivar mais presença e calma" },
+  { re: /\brespirar\b/, goal: "Praticar respiração consciente" },
+  { re: /\balongar\b/, goal: "Alongar o corpo com regularidade" },
+  { re: /\byoga\b/, goal: "Praticar yoga com constância" },
+  { re: /\bbeber\s+agua\b/, goal: "Manter-se hidratado" },
+  { re: /\bler\b/, goal: "Ler com mais frequência" },
+  { re: /\bestudar\s+(ingles|espanhol|frances|alemao|matematica|programacao)/, goal: "Aprender com constância" },
+  { re: /\bpraticar\b/, goal: "Praticar com regularidade" },
+  { re: /\bdormir\s+cedo\b/, goal: "Melhorar a qualidade do sono" },
+  { re: /\bacordar\s+cedo\b/, goal: "Começar o dia com calma" },
+  { re: /\bjournal(ing)?\b/, goal: "Registrar pensamentos e ideias" },
+  { re: /\bescrever\s+no\s+diario\b/, goal: "Registrar pensamentos e ideias" },
 ];
 
 const OBJETIVO_HINTS = [
@@ -160,7 +191,6 @@ const OBJETIVO_HINTS = [
   /^pretendo\s+/,
   /\bmeu\s+objetivo\b/,
   /\bminha\s+meta\b/,
-  /\baprender\b/,
   /\bperder\s+\d+\s*kg\b/,
   /\bganhar\s+\d+\s*kg\b/,
   /\bjuntar\s+r?\$?\s*\d/,
@@ -181,6 +211,15 @@ const COMPROMISSO_HINTS = [
   /\bshow\b/,
   /\bjantar\b/,
   /\balmoco\b/,
+];
+
+const NOTE_HINTS = [
+  /^anotar\s+/,
+  /^anota[çc]ao[:\s]/,
+  /^nota[:\s]/,
+  /^ideia[:\s]/,
+  /^lembrar\s+que\b/,
+  /^guardar\s+ideia\b/,
 ];
 
 /* ---------------- title cleanup ---------------- */
@@ -204,6 +243,24 @@ function cleanTitle(raw: string): string {
   return t.replace(/[.!?]+$/, "");
 }
 
+function inferFrequency(
+  hasDailyHint: boolean,
+  days: Weekday[],
+): RoutineFrequency {
+  if (hasDailyHint || days.length === 0 || days.length === 7) return "diaria";
+  if (days.length >= 1) return "semanal";
+  return "custom";
+}
+
+const DAILY_HINTS = [
+  /\btodos?\s+os?\s+dias?\b/,
+  /\btodo\s+dia\b/,
+  /\bdiariamente\b/,
+  /\btoda\s+manha\b/,
+  /\btoda\s+noite\b/,
+  /\btoda\s+tarde\b/,
+];
+
 /* ---------------- main ---------------- */
 
 export function classifyInput(raw: string): Interpretation {
@@ -214,22 +271,39 @@ export function classifyInput(raw: string): Interpretation {
     return { category: null, title: "", confidence: 0 };
   }
 
+  // Explicit note trigger wins over everything else.
+  if (NOTE_HINTS.some((r) => r.test(lower))) {
+    const stripped = text.replace(/^(anotar|anota[çc]ao|nota|ideia|lembrar que|guardar ideia)[:\s]+/i, "");
+    return { category: "nota", title: cleanTitle(stripped || text), confidence: 0.9 };
+  }
+
   const time = extractTime(text);
   const date = extractDate(text);
   const routineDays = extractRoutineDays(text);
   const hasRoutineHint = ROUTINE_HINTS.some((r) => r.test(lower));
+  const hasDailyHint = DAILY_HINTS.some((r) => r.test(lower));
+  const habitVerb = HABIT_VERBS.find((h) => h.re.test(lower));
   const hasObjetivoHint = OBJETIVO_HINTS.some((r) => r.test(lower));
   const hasCompromissoHint = COMPROMISSO_HINTS.some((r) => r.test(lower));
 
   const title = cleanTitle(text);
 
-  // Rotina: recurrence keywords or multiple weekdays without a specific date+time
-  if (hasRoutineHint || (routineDays.length >= 2 && !time)) {
+  // Rotina / Hábito: recurrence keywords, habit verbs without a date/time,
+  // or multiple weekdays without a specific time.
+  const looksLikeHabit =
+    hasRoutineHint ||
+    (routineDays.length >= 2 && !time) ||
+    (!!habitVerb && !time && !date);
+
+  if (looksLikeHabit) {
+    const frequency = inferFrequency(hasDailyHint, routineDays);
     return {
       category: "rotina",
       title,
       days: routineDays,
-      confidence: 0.85,
+      frequency,
+      goal: habitVerb?.goal,
+      confidence: 0.88,
     };
   }
 
@@ -246,7 +320,7 @@ export function classifyInput(raw: string): Interpretation {
 
   // Objetivo
   if (hasObjetivoHint) {
-    return { category: "objetivo", title, confidence: 0.85 };
+    return { category: "objetivo", title, goal: title, confidence: 0.85 };
   }
 
   // Compromisso only from strong keyword + date
@@ -268,6 +342,6 @@ export function classifyInput(raw: string): Interpretation {
     return { category: "prioridade", title, date, confidence: 0.55 };
   }
 
-  // Ambíguo
-  return { category: null, title, date, time, confidence: 0.3 };
+  // Fallback: salva como nota livre para não perder a ideia do usuário.
+  return { category: "nota", title, date, time, confidence: 0.4 };
 }
