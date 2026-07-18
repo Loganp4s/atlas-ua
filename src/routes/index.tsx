@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { ArrowUpRight, CalendarClock, Target } from "lucide-react";
+import { ArrowUpRight, CalendarClock, Repeat, Target } from "lucide-react";
 import { AppShell, Card } from "@/components/atlas/AppShell";
-import { TaskComposer } from "@/components/atlas/TaskComposer";
+import { AtlasComposer } from "@/components/atlas/AtlasComposer";
 import { TaskList } from "@/components/atlas/TaskList";
 import { ProgressBar } from "@/components/atlas/ProgressBar";
-import { useEvents, useGoals, useProfile, useTasks } from "@/hooks/useAtlas";
+import { useEvents, useGoals, useProfile, useRoutines, useTasks } from "@/hooks/useAtlas";
 import {
   firstName,
   formatLongDate,
@@ -34,9 +34,10 @@ export const Route = createFileRoute("/")({
 
 function HomePage() {
   const { profile } = useProfile();
-  const { tasks, addTask, toggleTask, removeTask } = useTasks();
+  const { tasks, toggleTask, removeTask } = useTasks();
   const { events } = useEvents();
   const { goals } = useGoals();
+  const { routines } = useRoutines();
 
   const today = todayISO();
   const greeting = greetingForNow();
@@ -81,6 +82,8 @@ function HomePage() {
         </p>
       </header>
 
+      <AtlasComposer />
+
       <section className="mb-8">
         <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-primary p-6 text-primary-foreground">
           <div className="relative z-10">
@@ -120,15 +123,12 @@ function HomePage() {
           <h2 className="font-display text-lg font-medium text-foreground">Hoje</h2>
           <span className="text-xs text-muted-foreground">Prioridades</span>
         </div>
-        <div className="mb-3">
-          <TaskComposer onAdd={addTask} defaultDueDate={today} />
-        </div>
         <TaskList
           tasks={todaysTasks}
           onToggle={toggleTask}
           onRemove={removeTask}
           emptyTitle="Seu dia está em branco"
-          emptyDescription="Escolha uma ou duas prioridades — o restante virá com o tempo."
+          emptyDescription="Escreva no Atlas o que precisa fazer — ele organiza para você."
         />
       </section>
 
@@ -223,6 +223,33 @@ function HomePage() {
           </ul>
         )}
       </section>
+
+      {routines.length > 0 ? (
+        <section className="mt-8">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="font-display text-lg font-medium text-foreground">Rotinas</h2>
+            <span className="text-xs text-muted-foreground">Hábitos</span>
+          </div>
+          <ul className="flex flex-col gap-2">
+            {routines.slice(0, 4).map((r) => (
+              <li
+                key={r.id}
+                className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-foreground">
+                  <Repeat className="h-4 w-4" strokeWidth={1.75} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground">{r.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {r.days.length === 0 ? "Todos os dias" : r.days.join(" · ")}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </AppShell>
   );
 }
