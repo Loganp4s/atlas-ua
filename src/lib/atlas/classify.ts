@@ -1,10 +1,11 @@
-import type { Weekday } from "./types";
+import type { RoutineFrequency, Weekday } from "./types";
 
 export type IntentCategory =
   | "prioridade"
   | "compromisso"
   | "objetivo"
-  | "rotina";
+  | "rotina"
+  | "nota";
 
 export interface Interpretation {
   category: IntentCategory | null; // null = ambíguo
@@ -15,6 +16,10 @@ export interface Interpretation {
   time?: string;
   /** Only for rotina; empty array = "todos os dias" */
   days?: Weekday[];
+  /** Only for rotina */
+  frequency?: RoutineFrequency;
+  /** Short auto-generated purpose (for rotina/objetivo) */
+  goal?: string;
   /** Confidence 0-1 (for internal tuning, not shown to user) */
   confidence: number;
 }
