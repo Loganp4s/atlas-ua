@@ -5,6 +5,8 @@ import type {
   GoalStatus,
   Priority,
   Profile,
+  Routine,
+  Weekday,
   Task,
 } from "@/lib/atlas/types";
 
@@ -132,4 +134,31 @@ export function useGoals() {
   }
 
   return { goals, addGoal, updateGoal, setGoalProgress, setGoalStatus, removeGoal };
+}
+
+/* --------------------------- Routines --------------------------- */
+
+export function useRoutines() {
+  const routines = useAtlasState((s) => s.routines);
+
+  function addRoutine(input: { title: string; days?: Weekday[] }) {
+    const title = input.title.trim();
+    if (!title) return;
+    const routine: Routine = {
+      id: createId(),
+      title,
+      days: input.days ?? [],
+      createdAt: new Date().toISOString(),
+    };
+    atlasStore.setState((s) => ({ ...s, routines: [routine, ...s.routines] }));
+  }
+
+  function removeRoutine(id: string) {
+    atlasStore.setState((s) => ({
+      ...s,
+      routines: s.routines.filter((r) => r.id !== id),
+    }));
+  }
+
+  return { routines, addRoutine, removeRoutine };
 }
