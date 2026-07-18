@@ -73,7 +73,8 @@ export function AtlasComposer() {
 
   function interpret() {
     const draft = classifyInput(text);
-    if (!draft.title || !draft.category) return;
+    const category = draft.category;
+    if (!draft.title || !category) return;
 
     setThinking(true);
     // Small delay so the assistant feels like it's reading, not just echoing.
@@ -139,7 +140,7 @@ export function AtlasComposer() {
         }
       }
 
-      setReply({ category: draft.category, message, detail });
+      setReply({ category, message, detail });
       setText("");
       setThinking(false);
     }, 380);
