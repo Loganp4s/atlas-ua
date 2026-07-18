@@ -32,11 +32,22 @@ export interface Goal {
 
 export type Weekday = "seg" | "ter" | "qua" | "qui" | "sex" | "sab" | "dom";
 
+export type RoutineFrequency = "diaria" | "semanal" | "custom";
+
 export interface Routine {
   id: string;
   title: string;
   /** Empty array means "todos os dias". */
   days: Weekday[];
+  createdAt: string;
+  frequency: RoutineFrequency;
+  goal?: string;
+  active: boolean;
+}
+
+export interface Note {
+  id: string;
+  content: string;
   createdAt: string;
 }
 
@@ -50,6 +61,7 @@ export interface AtlasState {
   events: CalendarEvent[];
   goals: Goal[];
   routines: Routine[];
+  notes: Note[];
 }
 
 export const defaultAtlasState: AtlasState = {
@@ -58,4 +70,5 @@ export const defaultAtlasState: AtlasState = {
   events: [],
   goals: [],
   routines: [],
+  notes: [],
 };
