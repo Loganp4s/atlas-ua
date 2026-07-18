@@ -82,7 +82,7 @@ export function AtlasComposer() {
       let message = "";
       let detail: string | undefined;
 
-      switch (draft.category) {
+      switch (category) {
         case "prioridade": {
           addTask({
             title: draft.title,
