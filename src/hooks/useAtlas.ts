@@ -3,9 +3,11 @@ import type {
   CalendarEvent,
   Goal,
   GoalStatus,
+  Note,
   Priority,
   Profile,
   Routine,
+  RoutineFrequency,
   Weekday,
   Task,
 } from "@/lib/atlas/types";
@@ -141,7 +143,13 @@ export function useGoals() {
 export function useRoutines() {
   const routines = useAtlasState((s) => s.routines);
 
-  function addRoutine(input: { title: string; days?: Weekday[] }) {
+  function addRoutine(input: {
+    title: string;
+    days?: Weekday[];
+    frequency?: RoutineFrequency;
+    goal?: string;
+    active?: boolean;
+  }) {
     const title = input.title.trim();
     if (!title) return;
     const routine: Routine = {
@@ -149,8 +157,18 @@ export function useRoutines() {
       title,
       days: input.days ?? [],
       createdAt: new Date().toISOString(),
+      frequency: input.frequency ?? (input.days && input.days.length > 0 ? "semanal" : "diaria"),
+      goal: input.goal?.trim() || undefined,
+      active: input.active ?? true,
     };
     atlasStore.setState((s) => ({ ...s, routines: [routine, ...s.routines] }));
+  }
+
+  function toggleRoutineActive(id: string) {
+    atlasStore.setState((s) => ({
+      ...s,
+      routines: s.routines.map((r) => (r.id === id ? { ...r, active: !r.active } : r)),
+    }));
   }
 
   function removeRoutine(id: string) {
@@ -160,5 +178,28 @@ export function useRoutines() {
     }));
   }
 
-  return { routines, addRoutine, removeRoutine };
+  return { routines, addRoutine, toggleRoutineActive, removeRoutine };
+}
+
+/* ---------------------------- Notes ---------------------------- */
+
+export function useNotes() {
+  const notes = useAtlasState((s) => s.notes);
+
+  function addNote(content: string) {
+    const c = content.trim();
+    if (!c) return;
+    const note: Note = {
+      id: createId(),
+      content: c,
+      createdAt: new Date().toISOString(),
+    };
+    atlasStore.setState((s) => ({ ...s, notes: [note, ...s.notes] }));
+  }
+
+  function removeNote(id: string) {
+    atlasStore.setState((s) => ({ ...s, notes: s.notes.filter((n) => n.id !== id) }));
+  }
+
+  return { notes, addNote, removeNote };
 }
