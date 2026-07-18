@@ -30,6 +30,16 @@ export interface Goal {
   createdAt: string;
 }
 
+export type Weekday = "seg" | "ter" | "qua" | "qui" | "sex" | "sab" | "dom";
+
+export interface Routine {
+  id: string;
+  title: string;
+  /** Empty array means "todos os dias". */
+  days: Weekday[];
+  createdAt: string;
+}
+
 export interface Profile {
   name: string;
 }
@@ -39,6 +49,7 @@ export interface AtlasState {
   tasks: Task[];
   events: CalendarEvent[];
   goals: Goal[];
+  routines: Routine[];
 }
 
 export const defaultAtlasState: AtlasState = {
@@ -46,4 +57,5 @@ export const defaultAtlasState: AtlasState = {
   tasks: [],
   events: [],
   goals: [],
+  routines: [],
 };
