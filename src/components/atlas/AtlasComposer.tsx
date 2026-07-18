@@ -1,7 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, CalendarClock, Check, ListChecks, Pencil, Repeat, Sparkles, Target, X } from "lucide-react";
-import { classifyInput, type IntentCategory, type Interpretation } from "@/lib/atlas/classify";
-import { useEvents, useGoals, useRoutines, useTasks } from "@/hooks/useAtlas";
+import { useEffect, useRef, useState } from "react";
+import {
+  ArrowUp,
+  CalendarClock,
+  ListChecks,
+  Repeat,
+  Sparkles,
+  StickyNote,
+  Target,
+} from "lucide-react";
+import { classifyInput, type IntentCategory } from "@/lib/atlas/classify";
+import { useEvents, useGoals, useNotes, useRoutines, useTasks } from "@/hooks/useAtlas";
 import { formatShortDate, todayISO } from "@/lib/atlas/format";
 
 const PLACEHOLDERS = [
@@ -15,24 +23,25 @@ const PLACEHOLDERS = [
 
 const CATEGORY_META: Record<
   IntentCategory,
-  { label: string; Icon: typeof Target; hint: string }
+  { label: string; Icon: typeof Target; location: string }
 > = {
-  prioridade: { label: "Prioridade", Icon: ListChecks, hint: "Vai para Hoje" },
-  compromisso: { label: "Compromisso", Icon: CalendarClock, hint: "Vai para Próximos" },
-  objetivo: { label: "Objetivo", Icon: Target, hint: "Vai para Seus objetivos" },
-  rotina: { label: "Rotina", Icon: Repeat, hint: "Vai para Rotinas" },
+  prioridade: { label: "Prioridade", Icon: ListChecks, location: "Rotina › Tarefas" },
+  compromisso: { label: "Compromisso", Icon: CalendarClock, location: "Rotina › Agenda" },
+  objetivo: { label: "Objetivo", Icon: Target, location: "Objetivos" },
+  rotina: { label: "Hábito", Icon: Repeat, location: "Rotina › Hábitos" },
+  nota: { label: "Nota", Icon: StickyNote, location: "Rotina › Notas" },
 };
 
-type Stage =
-  | { kind: "idle" }
-  | { kind: "ambiguous"; draft: Interpretation }
-  | { kind: "confirm"; draft: Interpretation & { category: IntentCategory } }
-  | { kind: "edit"; draft: Interpretation & { category: IntentCategory } }
-  | { kind: "saved"; category: IntentCategory };
+type AssistantReply = {
+  category: IntentCategory;
+  message: string;
+  detail?: string;
+};
 
 export function AtlasComposer() {
   const [text, setText] = useState("");
-  const [stage, setStage] = useState<Stage>({ kind: "idle" });
+  const [reply, setReply] = useState<AssistantReply | null>(null);
+  const [thinking, setThinking] = useState(false);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -41,6 +50,7 @@ export function AtlasComposer() {
   const { addEvent } = useEvents();
   const { addGoal } = useGoals();
   const { addRoutine } = useRoutines();
+  const { addNote } = useNotes();
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -61,60 +71,83 @@ export function AtlasComposer() {
     el.style.height = Math.min(el.scrollHeight, 160) + "px";
   }, [text]);
 
-  useEffect(() => {
-    if (stage.kind !== "saved") return;
-    const id = setTimeout(() => setStage({ kind: "idle" }), 1800);
-    return () => clearTimeout(id);
-  }, [stage]);
-
   function interpret() {
-    const result = classifyInput(text);
-    if (!result.title) return;
-    if (result.category === null) {
-      setStage({ kind: "ambiguous", draft: result });
-    } else {
-      setStage({
-        kind: "confirm",
-        draft: result as Interpretation & { category: IntentCategory },
-      });
-    }
+    const draft = classifyInput(text);
+    if (!draft.title || !draft.category) return;
+
+    setThinking(true);
+    // Small delay so the assistant feels like it's reading, not just echoing.
+    window.setTimeout(() => {
+      let message = "";
+      let detail: string | undefined;
+
+      switch (draft.category) {
+        case "prioridade": {
+          addTask({
+            title: draft.title,
+            priority: "media",
+            dueDate: draft.date ?? todayISO(),
+          });
+          message = `Adicionei "${draft.title}" às suas prioridades de hoje.`;
+          detail = "Você pode acompanhar em Rotina › Tarefas.";
+          break;
+        }
+        case "compromisso": {
+          const date = draft.date ?? todayISO();
+          addEvent({ title: draft.title, date, time: draft.time });
+          const when = `${formatShortDate(date)}${draft.time ? ` às ${draft.time}` : ""}`;
+          message = `Marquei "${draft.title}" na sua agenda para ${when}.`;
+          detail = "Você encontra em Rotina › Agenda.";
+          break;
+        }
+        case "objetivo": {
+          addGoal({ name: draft.title, description: draft.goal });
+          message = `Registrei "${draft.title}" como um novo objetivo.`;
+          detail = "Defina o progresso quando quiser em Objetivos.";
+          break;
+        }
+        case "rotina": {
+          const freq = draft.frequency ?? "diaria";
+          const days = draft.days ?? [];
+          addRoutine({
+            title: draft.title,
+            days,
+            frequency: freq,
+            goal: draft.goal,
+            active: true,
+          });
+          const freqLabel =
+            freq === "diaria"
+              ? "diário"
+              : freq === "semanal"
+                ? "semanal"
+                : "personalizado";
+          message = `Transformei isso em um hábito ${freqLabel} chamado "${draft.title}"${
+            draft.goal ? `, com o objetivo de ${draft.goal.toLowerCase()}` : ""
+          }.`;
+          detail =
+            days.length > 0
+              ? `Programado para ${days.join(" · ")}. Ative ou pause em Rotina › Hábitos.`
+              : "Está ativo em Rotina › Hábitos.";
+          break;
+        }
+        case "nota": {
+          addNote(draft.title);
+          message = `Guardei uma nota: "${draft.title}".`;
+          detail = "Você encontra em Rotina › Notas.";
+          break;
+        }
+      }
+
+      setReply({ category: draft.category, message, detail });
+      setText("");
+      setThinking(false);
+    }, 380);
   }
 
-  function pickCategory(category: IntentCategory) {
-    setStage((prev) => {
-      if (prev.kind !== "ambiguous") return prev;
-      return { kind: "confirm", draft: { ...prev.draft, category } };
-    });
+  function dismissReply() {
+    setReply(null);
   }
-
-  function persist(draft: Interpretation & { category: IntentCategory }) {
-    switch (draft.category) {
-      case "prioridade":
-        addTask({ title: draft.title, priority: "media", dueDate: draft.date ?? todayISO() });
-        break;
-      case "compromisso":
-        addEvent({
-          title: draft.title,
-          date: draft.date ?? todayISO(),
-          time: draft.time,
-        });
-        break;
-      case "objetivo":
-        addGoal({ name: draft.title });
-        break;
-      case "rotina":
-        addRoutine({ title: draft.title, days: draft.days ?? [] });
-        break;
-    }
-    setText("");
-    setStage({ kind: "saved", category: draft.category });
-  }
-
-  function reset() {
-    setStage({ kind: "idle" });
-  }
-
-  const showConfirm = stage.kind === "confirm" || stage.kind === "edit";
 
   return (
     <section aria-label="Atlas Composer" className="mb-8">
@@ -137,7 +170,10 @@ export function AtlasComposer() {
             <textarea
               ref={inputRef}
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                setText(e.target.value);
+                if (reply) setReply(null);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -145,7 +181,7 @@ export function AtlasComposer() {
                 }
               }}
               rows={1}
-              disabled={showConfirm || stage.kind === "ambiguous"}
+              disabled={thinking}
               className="peer w-full resize-none bg-transparent pr-11 font-display text-[17px] leading-relaxed text-foreground placeholder:text-transparent focus:outline-none disabled:opacity-60"
             />
             {text.length === 0 ? (
@@ -164,7 +200,7 @@ export function AtlasComposer() {
             <button
               type="button"
               onClick={interpret}
-              disabled={!text.trim() || showConfirm || stage.kind === "ambiguous"}
+              disabled={!text.trim() || thinking}
               aria-label="Interpretar"
               className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-all hover:opacity-90 disabled:opacity-30"
             >
@@ -172,29 +208,10 @@ export function AtlasComposer() {
             </button>
           </div>
 
-          {stage.kind === "ambiguous" ? (
-            <AmbiguousBlock onPick={pickCategory} onCancel={reset} />
-          ) : null}
+          {thinking ? <ThinkingBlock /> : null}
 
-          {stage.kind === "confirm" ? (
-            <ConfirmBlock
-              draft={stage.draft}
-              onConfirm={() => persist(stage.draft)}
-              onEdit={() => setStage({ kind: "edit", draft: stage.draft })}
-              onCancel={reset}
-            />
-          ) : null}
-
-          {stage.kind === "edit" ? (
-            <EditBlock
-              draft={stage.draft}
-              onSave={(next) => setStage({ kind: "confirm", draft: next })}
-              onCancel={() => setStage({ kind: "confirm", draft: stage.draft })}
-            />
-          ) : null}
-
-          {stage.kind === "saved" ? (
-            <SavedBlock category={stage.category} />
+          {!thinking && reply ? (
+            <AssistantReplyBlock reply={reply} onDismiss={dismissReply} />
           ) : null}
         </div>
       </div>
@@ -204,234 +221,52 @@ export function AtlasComposer() {
 
 /* -------------------- sub-blocks -------------------- */
 
-function AmbiguousBlock({
-  onPick,
-  onCancel,
-}: {
-  onPick: (c: IntentCategory) => void;
-  onCancel: () => void;
-}) {
-  const cats: IntentCategory[] = ["prioridade", "compromisso", "objetivo", "rotina"];
+function ThinkingBlock() {
   return (
-    <div className="mt-4 animate-in fade-in slide-in-from-bottom-1 duration-300">
-      <p className="mb-3 text-sm text-muted-foreground">Como você gostaria de organizar isso?</p>
-      <div className="grid grid-cols-2 gap-2">
-        {cats.map((c) => {
-          const meta = CATEGORY_META[c];
-          const Icon = meta.Icon;
-          return (
-            <button
-              key={c}
-              type="button"
-              onClick={() => onPick(c)}
-              className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:border-foreground"
-            >
-              <Icon className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
-              {meta.label}
-            </button>
-          );
-        })}
-      </div>
-      <div className="mt-3 flex justify-end">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          Cancelar
-        </button>
-      </div>
+    <div className="mt-4 flex items-center gap-2 rounded-2xl border border-border/70 bg-background px-4 py-3 animate-in fade-in duration-200">
+      <Sparkles className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
+      <span className="text-sm text-muted-foreground">Atlas está organizando…</span>
+      <span className="ml-1 inline-flex gap-1">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground/60" />
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground/60 [animation-delay:120ms]" />
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground/60 [animation-delay:240ms]" />
+      </span>
     </div>
   );
 }
 
-function ConfirmBlock({
-  draft,
-  onConfirm,
-  onEdit,
-  onCancel,
+function AssistantReplyBlock({
+  reply,
+  onDismiss,
 }: {
-  draft: Interpretation & { category: IntentCategory };
-  onConfirm: () => void;
-  onEdit: () => void;
-  onCancel: () => void;
+  reply: AssistantReply;
+  onDismiss: () => void;
 }) {
-  const meta = CATEGORY_META[draft.category];
+  const meta = CATEGORY_META[reply.category];
   const Icon = meta.Icon;
   return (
-    <div className="mt-4 animate-in fade-in slide-in-from-bottom-1 duration-300">
-      <div className="rounded-2xl border border-border bg-background p-4">
-        <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-          Entendi da seguinte forma
-        </p>
-        <div className="mt-3 flex items-start gap-3">
-          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground">
-            <Icon className="h-4 w-4" strokeWidth={1.75} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs text-muted-foreground">{meta.label}</p>
-            <p className="mt-0.5 font-display text-base font-medium text-foreground">
-              {draft.title}
-            </p>
-            {(draft.date || draft.time) && draft.category === "compromisso" ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {draft.date ? formatShortDate(draft.date) : ""}
-                {draft.time ? ` · ${draft.time}` : ""}
-              </p>
-            ) : null}
-            {draft.category === "rotina" && draft.days && draft.days.length > 0 ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {draft.days.join(" · ")}
-              </p>
-            ) : null}
-            <p className="mt-1 text-[11px] text-muted-foreground/80">{meta.hint}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-3 flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-xl px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <X className="mr-1 inline h-3.5 w-3.5" strokeWidth={1.75} />
-          Cancelar
-        </button>
-        <button
-          type="button"
-          onClick={onEdit}
-          className="rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:border-foreground"
-        >
-          <Pencil className="mr-1 inline h-3.5 w-3.5" strokeWidth={1.75} />
-          Editar
-        </button>
-        <button
-          type="button"
-          onClick={onConfirm}
-          className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          <Check className="mr-1 inline h-3.5 w-3.5" strokeWidth={2} />
-          Confirmar
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function EditBlock({
-  draft,
-  onSave,
-  onCancel,
-}: {
-  draft: Interpretation & { category: IntentCategory };
-  onSave: (next: Interpretation & { category: IntentCategory }) => void;
-  onCancel: () => void;
-}) {
-  const [title, setTitle] = useState(draft.title);
-  const [category, setCategory] = useState<IntentCategory>(draft.category);
-  const [date, setDate] = useState(draft.date ?? "");
-  const [time, setTime] = useState(draft.time ?? "");
-
-  const cats: IntentCategory[] = useMemo(
-    () => ["prioridade", "compromisso", "objetivo", "rotina"],
-    [],
-  );
-
-  const inputCls =
-    "w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none";
-
-  return (
-    <div className="mt-4 animate-in fade-in slide-in-from-bottom-1 duration-300">
-      <div className="rounded-2xl border border-border bg-background p-4">
-        <div className="flex flex-col gap-3">
-          <div>
-            <label className="mb-1.5 block text-xs text-muted-foreground">Categoria</label>
-            <div className="flex flex-wrap gap-1.5">
-              {cats.map((c) => {
-                const active = category === c;
-                return (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setCategory(c)}
-                    className={
-                      "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors " +
-                      (active
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border bg-transparent text-muted-foreground hover:text-foreground")
-                    }
-                  >
-                    {CATEGORY_META[c].label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs text-muted-foreground">Título</label>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className={inputCls}
-            />
-          </div>
-          {category === "compromisso" ? (
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className={inputCls}
-              />
-              <input
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className={inputCls}
-              />
-            </div>
+    <div className="mt-4 rounded-2xl border border-border bg-background p-4 animate-in fade-in slide-in-from-bottom-1 duration-300">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground">
+          <Icon className="h-4 w-4" strokeWidth={1.75} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            {meta.label} · {meta.location}
+          </p>
+          <p className="mt-1 text-sm leading-relaxed text-foreground">{reply.message}</p>
+          {reply.detail ? (
+            <p className="mt-1 text-xs text-muted-foreground">{reply.detail}</p>
           ) : null}
         </div>
-      </div>
-      <div className="mt-3 flex items-center justify-end gap-2">
         <button
           type="button"
-          onClick={onCancel}
-          className="rounded-xl px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
+          onClick={onDismiss}
+          className="text-xs text-muted-foreground hover:text-foreground"
         >
-          Cancelar
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            onSave({
-              ...draft,
-              category,
-              title: title.trim() || draft.title,
-              date: category === "compromisso" ? date || undefined : undefined,
-              time: category === "compromisso" ? time || undefined : undefined,
-            })
-          }
-          className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          Salvar
+          Ok
         </button>
       </div>
-    </div>
-  );
-}
-
-function SavedBlock({ category }: { category: IntentCategory }) {
-  const meta = CATEGORY_META[category];
-  return (
-    <div className="mt-4 flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-3 animate-in fade-in slide-in-from-bottom-1 duration-300">
-      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
-        <Check className="h-3.5 w-3.5" strokeWidth={2} />
-      </span>
-      <p className="text-sm text-foreground">
-        Salvo como <span className="font-medium">{meta.label}</span>. {meta.hint}.
-      </p>
     </div>
   );
 }
