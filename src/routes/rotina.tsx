@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Repeat, StickyNote, Trash2 } from "lucide-react";
-import { AppShell, Card, PageHeader } from "@/components/atlas/AppShell";
-import { TaskComposer } from "@/components/atlas/TaskComposer";
-import { TaskList } from "@/components/atlas/TaskList";
-import { EventComposer } from "@/components/atlas/EventComposer";
-import { EventList } from "@/components/atlas/EventList";
-import { useEvents, useNotes, useRoutines, useTasks } from "@/hooks/useAtlas";
+import { Loader2 } from "lucide-react";
+import { AppShell, PageHeader } from "@/components/atlas/AppShell";
+import { useAuthUser } from "@/components/rotina/useAuthUser";
+import { RotinaAuth } from "@/components/rotina/RotinaAuth";
+import { TasksTab } from "@/components/rotina/TasksTab";
+import { AgendaTab } from "@/components/rotina/AgendaTab";
+import { HabitsTab } from "@/components/rotina/HabitsTab";
+import { NotesTab } from "@/components/rotina/NotesTab";
 
 export const Route = createFileRoute("/rotina")({
   head: () => ({
@@ -24,11 +25,26 @@ export const Route = createFileRoute("/rotina")({
 type Tab = "tarefas" | "agenda" | "habitos" | "notas";
 
 function RotinaPage() {
+  const auth = useAuthUser();
   const [tab, setTab] = useState<Tab>("tarefas");
-  const { tasks, addTask, toggleTask, removeTask } = useTasks();
-  const { events, addEvent, removeEvent } = useEvents();
-  const { routines, toggleRoutineActive, removeRoutine } = useRoutines();
-  const { notes, removeNote } = useNotes();
+
+  if (auth.status === "loading") {
+    return (
+      <AppShell>
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (auth.status === "signedOut") {
+    return (
+      <AppShell>
+        <RotinaAuth />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -54,7 +70,7 @@ function RotinaPage() {
               type="button"
               onClick={() => setTab(t.id)}
               className={
-                "rounded-full px-4 py-1.5 text-xs font-medium transition-colors " +
+                "flex-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors " +
                 (active
                   ? "bg-foreground text-background"
                   : "text-muted-foreground hover:text-foreground")
@@ -67,143 +83,13 @@ function RotinaPage() {
       </div>
 
       {tab === "tarefas" ? (
-        <div className="flex flex-col gap-3">
-          <TaskComposer onAdd={addTask} />
-          <TaskList
-            tasks={tasks}
-            onToggle={toggleTask}
-            onRemove={removeTask}
-            emptyTitle="Sua rotina começa aqui"
-            emptyDescription="Adicione a primeira tarefa e organize seu dia com clareza."
-          />
-        </div>
+        <TasksTab />
       ) : tab === "agenda" ? (
-        <div className="flex flex-col gap-4">
-          <EventComposer onAdd={addEvent} />
-          <EventList
-            events={events}
-            onRemove={removeEvent}
-            emptyTitle="Sua agenda está livre"
-            emptyDescription="Ao registrar compromissos, eles aparecem aqui em ordem."
-          />
-        </div>
+        <AgendaTab />
       ) : tab === "habitos" ? (
-        <div className="flex flex-col gap-3">
-          {routines.length === 0 ? (
-            <Card className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-muted-foreground">
-                <Repeat className="h-4 w-4" strokeWidth={1.75} />
-              </span>
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  Nenhum hábito ainda
-                </p>
-                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                  Escreva algo como "correr todo dia" no Atlas e ele vira um hábito
-                  aqui automaticamente.
-                </p>
-              </div>
-            </Card>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {routines.map((r) => {
-                const freqLabel =
-                  r.frequency === "diaria"
-                    ? "Todos os dias"
-                    : r.frequency === "semanal"
-                      ? r.days.length > 0
-                        ? r.days.join(" · ")
-                        : "Semanal"
-                      : "Personalizado";
-                return (
-                  <li
-                    key={r.id}
-                    className="flex items-start gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3"
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground">
-                      <Repeat className="h-4 w-4" strokeWidth={1.75} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {r.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{freqLabel}</p>
-                      {r.goal ? (
-                        <p className="mt-1 text-xs text-muted-foreground/90">
-                          {r.goal}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => toggleRoutineActive(r.id)}
-                        className={
-                          "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors " +
-                          (r.active
-                            ? "border-foreground bg-foreground text-background"
-                            : "border-border text-muted-foreground hover:text-foreground")
-                        }
-                      >
-                        {r.active ? "Ativo" : "Pausado"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeRoutine(r.id)}
-                        aria-label="Remover hábito"
-                        className="rounded-full p-1.5 text-muted-foreground hover:text-foreground"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
+        <HabitsTab />
       ) : (
-        <div className="flex flex-col gap-3">
-          {notes.length === 0 ? (
-            <Card className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-muted-foreground">
-                <StickyNote className="h-4 w-4" strokeWidth={1.75} />
-              </span>
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  Nenhuma nota guardada
-                </p>
-                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                  Comece uma frase no Atlas com "nota:" ou "anotar" e ela aparece aqui.
-                </p>
-              </div>
-            </Card>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {notes.map((n) => (
-                <li
-                  key={n.id}
-                  className="flex items-start gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground">
-                    <StickyNote className="h-4 w-4" strokeWidth={1.75} />
-                  </span>
-                  <p className="min-w-0 flex-1 text-sm leading-relaxed text-foreground">
-                    {n.content}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => removeNote(n.id)}
-                    aria-label="Remover nota"
-                    className="rounded-full p-1.5 text-muted-foreground hover:text-foreground"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <NotesTab />
       )}
     </AppShell>
   );
