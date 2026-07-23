@@ -1,72 +1,123 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Wallet, PiggyBank, Target, LineChart } from "lucide-react";
-import { AppShell, Card, PageHeader } from "@/components/atlas/AppShell";
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
+import { AppShell, PageHeader } from "@/components/atlas/AppShell";
+import { useAuthUser } from "@/components/rotina/useAuthUser";
+import { FinanceAuth } from "@/components/financeiro/FinanceAuth";
+import { ResumoTab } from "@/components/financeiro/ResumoTab";
+import { MovimentacoesTab } from "@/components/financeiro/MovimentacoesTab";
+import { MetasTab } from "@/components/financeiro/MetasTab";
+import { ObjetivosTab } from "@/components/financeiro/ObjetivosTab";
+import { ContasTab } from "@/components/financeiro/ContasTab";
+import { RelatoriosTab } from "@/components/financeiro/RelatoriosTab";
+import { InsightsTab } from "@/components/financeiro/InsightsTab";
 
 export const Route = createFileRoute("/financeiro")({
   head: () => ({
     meta: [
       { title: "Financeiro — Atlas" },
-      { name: "description", content: "Sua vida financeira, com clareza e sem pressão." },
+      {
+        name: "description",
+        content:
+          "Sua vida financeira no Atlas: movimentações, metas, contas e insights, com clareza.",
+      },
+      { property: "og:title", content: "Financeiro — Atlas" },
+      {
+        property: "og:description",
+        content: "Uma visão calma do seu dinheiro no Atlas.",
+      },
     ],
   }),
   component: FinanceiroPage,
 });
 
-const preview = [
-  {
-    Icon: PiggyBank,
-    title: "Controle de gastos",
-    text: "Registre despesas com poucos toques e veja padrões sem julgamento.",
-  },
-  {
-    Icon: Target,
-    title: "Metas financeiras",
-    text: "Conecte seus objetivos ao dinheiro que os torna possíveis.",
-  },
-  {
-    Icon: LineChart,
-    title: "Uma visão calma",
-    text: "Menos números, mais decisões — o essencial em cada momento.",
-  },
+type Tab =
+  | "resumo"
+  | "mov"
+  | "metas"
+  | "objetivos"
+  | "contas"
+  | "relatorios"
+  | "insights";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "resumo", label: "Resumo" },
+  { id: "mov", label: "Movimentações" },
+  { id: "metas", label: "Metas" },
+  { id: "objetivos", label: "Objetivos" },
+  { id: "contas", label: "Contas" },
+  { id: "relatorios", label: "Relatórios" },
+  { id: "insights", label: "Insights" },
 ];
 
 function FinanceiroPage() {
+  const auth = useAuthUser();
+  const [tab, setTab] = useState<Tab>("resumo");
+
+  if (auth.status === "loading") {
+    return (
+      <AppShell>
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (auth.status === "signedOut") {
+    return (
+      <AppShell>
+        <FinanceAuth />
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
       <PageHeader
         eyebrow="Módulo"
         title="Financeiro"
-        description="Uma visão tranquila do seu dinheiro está a caminho."
+        description="Uma visão tranquila do seu dinheiro."
       />
 
-      <Card className="mb-6 flex items-start gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-foreground">
-          <Wallet className="h-[18px] w-[18px]" strokeWidth={1.75} />
-        </span>
-        <div>
-          <p className="text-sm font-medium text-foreground">Em construção</p>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            O Financeiro chegará com o mesmo cuidado dos outros módulos: sem pressão, apenas clareza.
-          </p>
+      <div className="-mx-5 mb-5 overflow-x-auto px-5">
+        <div className="flex gap-1 rounded-full border border-border bg-card p-1">
+          {TABS.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className={
+                  "shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors " +
+                  (active
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground")
+                }
+              >
+                {t.label}
+              </button>
+            );
+          })}
         </div>
-      </Card>
+      </div>
 
-      <ul className="flex flex-col gap-3">
-        {preview.map(({ Icon, title, text }) => (
-          <li
-            key={title}
-            className="flex items-start gap-3 rounded-2xl border border-border/70 bg-card p-4"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-foreground">
-              <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
-            </span>
-            <div>
-              <p className="text-sm font-medium text-foreground">{title}</p>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{text}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
+      {tab === "resumo" ? (
+        <ResumoTab />
+      ) : tab === "mov" ? (
+        <MovimentacoesTab />
+      ) : tab === "metas" ? (
+        <MetasTab />
+      ) : tab === "objetivos" ? (
+        <ObjetivosTab />
+      ) : tab === "contas" ? (
+        <ContasTab />
+      ) : tab === "relatorios" ? (
+        <RelatoriosTab />
+      ) : (
+        <InsightsTab />
+      )}
     </AppShell>
   );
 }
