@@ -14,6 +14,279 @@ export type Database = {
   }
   public: {
     Tables: {
+      fin_accounts: {
+        Row: {
+          archived: boolean
+          color: string
+          created_at: string
+          icon: string
+          id: string
+          initial_balance: number
+          name: string
+          type: Database["public"]["Enums"]["fin_account_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          color?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          initial_balance?: number
+          name: string
+          type?: Database["public"]["Enums"]["fin_account_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          archived?: boolean
+          color?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          initial_balance?: number
+          name?: string
+          type?: Database["public"]["Enums"]["fin_account_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      fin_bills: {
+        Row: {
+          amount: number
+          category: string | null
+          created_at: string
+          due_date: string
+          id: string
+          name: string
+          notes: string | null
+          paid_at: string | null
+          recurrence: Database["public"]["Enums"]["fin_recurrence"]
+          reminder_minutes: number | null
+          status: Database["public"]["Enums"]["fin_bill_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category?: string | null
+          created_at?: string
+          due_date: string
+          id?: string
+          name: string
+          notes?: string | null
+          paid_at?: string | null
+          recurrence?: Database["public"]["Enums"]["fin_recurrence"]
+          reminder_minutes?: number | null
+          status?: Database["public"]["Enums"]["fin_bill_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string | null
+          created_at?: string
+          due_date?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          paid_at?: string | null
+          recurrence?: Database["public"]["Enums"]["fin_recurrence"]
+          reminder_minutes?: number | null
+          status?: Database["public"]["Enums"]["fin_bill_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      fin_goal_contributions: {
+        Row: {
+          amount: number
+          contribution_date: string
+          created_at: string
+          goal_id: string
+          id: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          contribution_date?: string
+          created_at?: string
+          goal_id: string
+          id?: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          contribution_date?: string
+          created_at?: string
+          goal_id?: string
+          id?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_goal_contributions_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "fin_goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_goals: {
+        Row: {
+          color: string
+          created_at: string
+          current_amount: number
+          deadline: string | null
+          id: string
+          name: string
+          target_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          current_amount?: number
+          deadline?: string | null
+          id?: string
+          name: string
+          target_amount: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          current_amount?: number
+          deadline?: string | null
+          id?: string
+          name?: string
+          target_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      fin_objectives: {
+        Row: {
+          created_at: string
+          description: string | null
+          desired_date: string | null
+          estimated_amount: number | null
+          id: string
+          linked_goal_id: string | null
+          linked_habit_id: string | null
+          name: string
+          priority: Database["public"]["Enums"]["fin_priority"]
+          status: Database["public"]["Enums"]["fin_objective_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          desired_date?: string | null
+          estimated_amount?: number | null
+          id?: string
+          linked_goal_id?: string | null
+          linked_habit_id?: string | null
+          name: string
+          priority?: Database["public"]["Enums"]["fin_priority"]
+          status?: Database["public"]["Enums"]["fin_objective_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          desired_date?: string | null
+          estimated_amount?: number | null
+          id?: string
+          linked_goal_id?: string | null
+          linked_habit_id?: string | null
+          name?: string
+          priority?: Database["public"]["Enums"]["fin_priority"]
+          status?: Database["public"]["Enums"]["fin_objective_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_objectives_linked_goal_id_fkey"
+            columns: ["linked_goal_id"]
+            isOneToOne: false
+            referencedRelation: "fin_goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_transactions: {
+        Row: {
+          account_id: string | null
+          amount: number
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          installment_group: string | null
+          installment_index: number | null
+          installment_total: number | null
+          recurrence: Database["public"]["Enums"]["fin_recurrence"]
+          tx_date: string
+          type: Database["public"]["Enums"]["fin_tx_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          installment_group?: string | null
+          installment_index?: number | null
+          installment_total?: number | null
+          recurrence?: Database["public"]["Enums"]["fin_recurrence"]
+          tx_date?: string
+          type: Database["public"]["Enums"]["fin_tx_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          installment_group?: string | null
+          installment_index?: number | null
+          installment_total?: number | null
+          recurrence?: Database["public"]["Enums"]["fin_recurrence"]
+          tx_date?: string
+          type?: Database["public"]["Enums"]["fin_tx_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rotina_events: {
         Row: {
           color: string
@@ -216,6 +489,17 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      fin_account_type:
+        | "corrente"
+        | "poupanca"
+        | "carteira"
+        | "cartao"
+        | "investimento"
+      fin_bill_status: "pendente" | "pago"
+      fin_objective_status: "ativo" | "pausado" | "concluido"
+      fin_priority: "baixa" | "media" | "alta"
+      fin_recurrence: "none" | "diaria" | "semanal" | "mensal" | "anual"
+      fin_tx_type: "entrada" | "saida"
       rotina_priority: "baixa" | "media" | "alta"
     }
     CompositeTypes: {
@@ -344,6 +628,18 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      fin_account_type: [
+        "corrente",
+        "poupanca",
+        "carteira",
+        "cartao",
+        "investimento",
+      ],
+      fin_bill_status: ["pendente", "pago"],
+      fin_objective_status: ["ativo", "pausado", "concluido"],
+      fin_priority: ["baixa", "media", "alta"],
+      fin_recurrence: ["none", "diaria", "semanal", "mensal", "anual"],
+      fin_tx_type: ["entrada", "saida"],
       rotina_priority: ["baixa", "media", "alta"],
     },
   },
