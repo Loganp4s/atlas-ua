@@ -287,6 +287,169 @@ export type Database = {
           },
         ]
       }
+      obj_history: {
+        Row: {
+          created_at: string
+          details: Json
+          event_type: string
+          id: string
+          message: string
+          objective_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json
+          event_type: string
+          id?: string
+          message: string
+          objective_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json
+          event_type?: string
+          id?: string
+          message?: string
+          objective_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obj_history_objective_id_fkey"
+            columns: ["objective_id"]
+            isOneToOne: false
+            referencedRelation: "obj_objectives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      obj_objectives: {
+        Row: {
+          ai_context: Json
+          ai_summary: string | null
+          category: Database["public"]["Enums"]["obj_category"]
+          cover_url: string | null
+          created_at: string
+          current_amount: number
+          current_number: number
+          deadline: string | null
+          description: string | null
+          emoji: string
+          id: string
+          integrations: Json
+          manual_progress: number
+          name: string
+          notes: string | null
+          number_unit: string | null
+          priority: Database["public"]["Enums"]["obj_priority"]
+          simulation: Json
+          status: Database["public"]["Enums"]["obj_status"]
+          target_amount: number | null
+          target_number: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_context?: Json
+          ai_summary?: string | null
+          category?: Database["public"]["Enums"]["obj_category"]
+          cover_url?: string | null
+          created_at?: string
+          current_amount?: number
+          current_number?: number
+          deadline?: string | null
+          description?: string | null
+          emoji?: string
+          id?: string
+          integrations?: Json
+          manual_progress?: number
+          name: string
+          notes?: string | null
+          number_unit?: string | null
+          priority?: Database["public"]["Enums"]["obj_priority"]
+          simulation?: Json
+          status?: Database["public"]["Enums"]["obj_status"]
+          target_amount?: number | null
+          target_number?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_context?: Json
+          ai_summary?: string | null
+          category?: Database["public"]["Enums"]["obj_category"]
+          cover_url?: string | null
+          created_at?: string
+          current_amount?: number
+          current_number?: number
+          deadline?: string | null
+          description?: string | null
+          emoji?: string
+          id?: string
+          integrations?: Json
+          manual_progress?: number
+          name?: string
+          notes?: string | null
+          number_unit?: string | null
+          priority?: Database["public"]["Enums"]["obj_priority"]
+          simulation?: Json
+          status?: Database["public"]["Enums"]["obj_status"]
+          target_amount?: number | null
+          target_number?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      obj_steps: {
+        Row: {
+          created_at: string
+          done: boolean
+          done_at: string | null
+          due_date: string | null
+          id: string
+          objective_id: string
+          position: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          done?: boolean
+          done_at?: string | null
+          due_date?: string | null
+          id?: string
+          objective_id: string
+          position?: number
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          done?: boolean
+          done_at?: string | null
+          due_date?: string | null
+          id?: string
+          objective_id?: string
+          position?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obj_steps_objective_id_fkey"
+            columns: ["objective_id"]
+            isOneToOne: false
+            referencedRelation: "obj_objectives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rotina_events: {
         Row: {
           color: string
@@ -500,6 +663,25 @@ export type Database = {
       fin_priority: "baixa" | "media" | "alta"
       fin_recurrence: "none" | "diaria" | "semanal" | "mensal" | "anual"
       fin_tx_type: "entrada" | "saida"
+      obj_category:
+        | "financeiro"
+        | "saude"
+        | "estudos"
+        | "carreira"
+        | "casa"
+        | "relacionamentos"
+        | "viagens"
+        | "veiculos"
+        | "negocios"
+        | "pessoal"
+        | "outro"
+      obj_priority: "baixa" | "normal" | "alta" | "muito_alta"
+      obj_status:
+        | "nao_iniciado"
+        | "em_andamento"
+        | "quase_concluido"
+        | "concluido"
+        | "arquivado"
       rotina_priority: "baixa" | "media" | "alta"
     }
     CompositeTypes: {
@@ -640,6 +822,27 @@ export const Constants = {
       fin_priority: ["baixa", "media", "alta"],
       fin_recurrence: ["none", "diaria", "semanal", "mensal", "anual"],
       fin_tx_type: ["entrada", "saida"],
+      obj_category: [
+        "financeiro",
+        "saude",
+        "estudos",
+        "carreira",
+        "casa",
+        "relacionamentos",
+        "viagens",
+        "veiculos",
+        "negocios",
+        "pessoal",
+        "outro",
+      ],
+      obj_priority: ["baixa", "normal", "alta", "muito_alta"],
+      obj_status: [
+        "nao_iniciado",
+        "em_andamento",
+        "quase_concluido",
+        "concluido",
+        "arquivado",
+      ],
       rotina_priority: ["baixa", "media", "alta"],
     },
   },
