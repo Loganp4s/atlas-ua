@@ -82,7 +82,7 @@ export async function createObjective(input: ObjectiveInput): Promise<ObjObjecti
   const user_id = await uid();
   const { data, error } = await supabase
     .from("obj_objectives")
-    .insert({ ...normalize(input), user_id })
+    .insert({ ...normalize(input), user_id } as never)
     .select()
     .single();
   if (error) throw error;
@@ -101,7 +101,7 @@ export async function updateObjective(
   if (typeof input.name === "string") patch.name = input.name.trim();
   const { data, error } = await supabase
     .from("obj_objectives")
-    .update(patch)
+    .update(patch as never)
     .eq("id", id)
     .select()
     .single();
@@ -236,6 +236,6 @@ export async function logHistory(
     user_id,
     event_type: eventType,
     message,
-    details,
-  });
+    details: details as never,
+  } as never);
 }
