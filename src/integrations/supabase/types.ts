@@ -14,6 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
+      atlas_memories: {
+        Row: {
+          category: Database["public"]["Enums"]["atlas_memory_category"]
+          content: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: Database["public"]["Enums"]["atlas_memory_category"]
+          content: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["atlas_memory_category"]
+          content?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      atlas_preferences: {
+        Row: {
+          accountability_level: Database["public"]["Enums"]["atlas_accountability"]
+          animations_enabled: boolean
+          communication_style: Database["public"]["Enums"]["atlas_comm_style"]
+          created_at: string
+          id: string
+          interface_density: Database["public"]["Enums"]["atlas_density"]
+          memory_categories: Json
+          motivational_messages: boolean
+          smart_reminders: boolean
+          theme: Database["public"]["Enums"]["atlas_theme"]
+          updated_at: string
+          use_emojis: boolean
+          use_nickname: boolean
+          user_id: string
+        }
+        Insert: {
+          accountability_level?: Database["public"]["Enums"]["atlas_accountability"]
+          animations_enabled?: boolean
+          communication_style?: Database["public"]["Enums"]["atlas_comm_style"]
+          created_at?: string
+          id?: string
+          interface_density?: Database["public"]["Enums"]["atlas_density"]
+          memory_categories?: Json
+          motivational_messages?: boolean
+          smart_reminders?: boolean
+          theme?: Database["public"]["Enums"]["atlas_theme"]
+          updated_at?: string
+          use_emojis?: boolean
+          use_nickname?: boolean
+          user_id: string
+        }
+        Update: {
+          accountability_level?: Database["public"]["Enums"]["atlas_accountability"]
+          animations_enabled?: boolean
+          communication_style?: Database["public"]["Enums"]["atlas_comm_style"]
+          created_at?: string
+          id?: string
+          interface_density?: Database["public"]["Enums"]["atlas_density"]
+          memory_categories?: Json
+          motivational_messages?: boolean
+          smart_reminders?: boolean
+          theme?: Database["public"]["Enums"]["atlas_theme"]
+          updated_at?: string
+          use_emojis?: boolean
+          use_nickname?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
       fin_accounts: {
         Row: {
           archived: boolean
@@ -450,6 +528,48 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          birth_date: string | null
+          city: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          nickname: string | null
+          occupation: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          birth_date?: string | null
+          city?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          nickname?: string | null
+          occupation?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          birth_date?: string | null
+          city?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          nickname?: string | null
+          occupation?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       rotina_events: {
         Row: {
           color: string
@@ -652,6 +772,22 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      atlas_accountability: "leve" | "normal" | "firme"
+      atlas_comm_style:
+        | "amigavel"
+        | "direto"
+        | "motivador"
+        | "profissional"
+        | "descontraido"
+      atlas_density: "confortavel" | "compacta"
+      atlas_memory_category:
+        | "profile"
+        | "preference"
+        | "routine"
+        | "goal"
+        | "personal"
+        | "other"
+      atlas_theme: "system" | "light" | "dark"
       fin_account_type:
         | "corrente"
         | "poupanca"
@@ -810,6 +946,24 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      atlas_accountability: ["leve", "normal", "firme"],
+      atlas_comm_style: [
+        "amigavel",
+        "direto",
+        "motivador",
+        "profissional",
+        "descontraido",
+      ],
+      atlas_density: ["confortavel", "compacta"],
+      atlas_memory_category: [
+        "profile",
+        "preference",
+        "routine",
+        "goal",
+        "personal",
+        "other",
+      ],
+      atlas_theme: ["system", "light", "dark"],
       fin_account_type: [
         "corrente",
         "poupanca",
