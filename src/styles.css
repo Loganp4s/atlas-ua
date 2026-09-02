@@ -150,3 +150,12 @@
     letter-spacing: -0.025em;
   }
 }
+
+/* Perfil > Aparência: allows users to turn interface animations off. */
+html.no-animations *,
+html.no-animations *::before,
+html.no-animations *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
