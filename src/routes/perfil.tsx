@@ -1,88 +1,197 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { User, Check } from "lucide-react";
-import { AppShell, Card, PageHeader } from "@/components/atlas/AppShell";
-import { useProfile } from "@/hooks/useAtlas";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { AppShell, PageHeader } from "@/components/atlas/AppShell";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAuthUser } from "@/components/rotina/useAuthUser";
+import { PerfilAuth } from "@/components/perfil/PerfilAuth";
+import { UserCard } from "@/components/perfil/UserCard";
+import { ProfileSheet } from "@/components/perfil/ProfileSheet";
+import { ProfileDetailsCard } from "@/components/perfil/ProfileDetailsCard";
+import { PersonalityCard } from "@/components/perfil/PersonalityCard";
+import { MemoryCard } from "@/components/perfil/MemoryCard";
+import { AppearanceCard } from "@/components/perfil/AppearanceCard";
+import { PrivacyCard } from "@/components/perfil/PrivacyCard";
+import { AccountCard } from "@/components/perfil/AccountCard";
+import { DangerZone } from "@/components/perfil/DangerZone";
+import { useAppearance } from "@/components/perfil/useAppearance";
+import { getAvatarUrl, getPreferences, getProfile, updatePreferences } from "@/lib/perfil/api";
+import type { MemoryCategoryFlags, Preferences } from "@/lib/perfil/types";
 
 export const Route = createFileRoute("/perfil")({
   head: () => ({
     meta: [
       { title: "Perfil — Atlas" },
-      { name: "description", content: "Ajuste suas preferências no Atlas." },
+      {
+        name: "description",
+        content:
+          "Configure quem você é e como o Atlas trabalha com você: perfil, personalidade, memória e aparência.",
+      },
+      { property: "og:title", content: "Perfil — Atlas" },
+      {
+        property: "og:description",
+        content:
+          "Configure quem você é e como o Atlas trabalha com você: perfil, personalidade, memória e aparência.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: PerfilPage,
 });
 
+type PrefPatch = Partial<
+  Omit<Preferences, "id" | "user_id" | "created_at" | "updated_at">
+>;
+
 function PerfilPage() {
-  const { profile, updateProfile } = useProfile();
-  const [name, setName] = useState(profile.name);
-  const [saved, setSaved] = useState(false);
+  const auth = useAuthUser();
+  const qc = useQueryClient();
+  const [editOpen, setEditOpen] = useState(false);
+  const signedIn = auth.status === "signedIn";
+
+  const profileQuery = useQuery({
+    queryKey: ["atlas-profile"],
+    queryFn: getProfile,
+    enabled: signedIn,
+  });
+
+  const prefsQuery = useQuery({
+    queryKey: ["atlas-preferences"],
+    queryFn: getPreferences,
+    enabled: signedIn,
+  });
+
+  const avatarPath = profileQuery.data?.avatar_url ?? null;
+  const avatarQuery = useQuery({
+    queryKey: ["atlas-avatar", avatarPath],
+    queryFn: () => getAvatarUrl(avatarPath),
+    enabled: signedIn && !!avatarPath,
+  });
+
+  const prefs = prefsQuery.data;
+  useAppearance(
+    prefs
+      ? {
+          theme: prefs.theme,
+          animations: prefs.animations_enabled,
+          density: prefs.interface_density,
+        }
+      : null,
+  );
+
+  const prefsMutation = useMutation({
+    mutationFn: (patch: PrefPatch) => updatePreferences(patch),
+    onMutate: async (patch) => {
+      const previous = qc.getQueryData<Preferences>(["atlas-preferences"]);
+      if (previous) {
+        qc.setQueryData<Preferences>(["atlas-preferences"], { ...previous, ...patch });
+      }
+      return { previous };
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(["atlas-preferences"], data);
+      toast.success("Alterações salvas.");
+    },
+    onError: (_err, _patch, ctx) => {
+      if (ctx?.previous) qc.setQueryData(["atlas-preferences"], ctx.previous);
+      toast.error("Não conseguimos salvar agora. Verifique sua conexão e tente novamente.");
+    },
+  });
 
   useEffect(() => {
-    setName(profile.name);
-  }, [profile.name]);
+    if (auth.status === "signedOut") qc.removeQueries({ queryKey: ["atlas-profile"] });
+  }, [auth.status, qc]);
 
-  function save(e: React.FormEvent) {
-    e.preventDefault();
-    updateProfile({ name: name.trim() });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1400);
+  if (auth.status === "loading") {
+    return (
+      <AppShell>
+        <PageHeader eyebrow="Você" title="Perfil" description="Personalize o Atlas do seu jeito." />
+        <div className="flex flex-col gap-4">
+          <Skeleton className="h-32 w-full rounded-2xl" />
+          <Skeleton className="h-40 w-full rounded-2xl" />
+          <Skeleton className="h-40 w-full rounded-2xl" />
+        </div>
+      </AppShell>
+    );
   }
 
-  const initial = (profile.name.trim()[0] || "").toUpperCase();
+  if (!signedIn) {
+    return (
+      <AppShell>
+        <PerfilAuth />
+      </AppShell>
+    );
+  }
+
+  const email = auth.user?.email ?? null;
+  const loading = profileQuery.isLoading || prefsQuery.isLoading;
 
   return (
     <AppShell>
-      <PageHeader eyebrow="Você" title="Perfil" description="Personalize sua experiência no Atlas." />
+      <PageHeader eyebrow="Você" title="Perfil" description="Personalize o Atlas do seu jeito." />
 
-      <Card className="mb-6 flex items-center gap-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-foreground">
-          {initial ? (
-            <span className="font-display text-xl font-medium">{initial}</span>
-          ) : (
-            <User className="h-6 w-6" strokeWidth={1.5} />
-          )}
+      {loading ? (
+        <div className="flex flex-col gap-4">
+          <Skeleton className="h-32 w-full rounded-2xl" />
+          <Skeleton className="h-48 w-full rounded-2xl" />
+          <Skeleton className="h-56 w-full rounded-2xl" />
         </div>
-        <div className="min-w-0">
-          <p className="truncate font-display text-lg font-medium text-foreground">
-            {profile.name || "Seu nome"}
-          </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {profile.name ? "Bem-vindo ao Atlas" : "Diga como devemos te chamar"}
-          </p>
-        </div>
-      </Card>
+      ) : (
+        <>
+          <UserCard
+            profile={profileQuery.data ?? null}
+            email={email}
+            avatarUrl={avatarQuery.data ?? null}
+            onEdit={() => setEditOpen(true)}
+          />
 
-      <form onSubmit={save} className="rounded-2xl border border-border/70 bg-card p-4">
-        <label htmlFor="name" className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-          Como devemos te chamar?
-        </label>
-        <input
-          id="name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Seu nome"
-          className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none"
-        />
-        <div className="mt-3 flex items-center justify-end gap-2">
-          {saved ? (
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <Check className="h-3.5 w-3.5" strokeWidth={2} /> salvo
-            </span>
+          <ProfileDetailsCard profile={profileQuery.data ?? null} />
+
+          {prefs ? (
+            <>
+              <PersonalityCard
+                prefs={prefs}
+                saving={prefsMutation.isPending}
+                onChange={(patch) => prefsMutation.mutate(patch)}
+              />
+              <MemoryCard
+                prefs={prefs}
+                saving={prefsMutation.isPending}
+                onChangeAreas={(flags: MemoryCategoryFlags) =>
+                  prefsMutation.mutate({ memory_categories: flags })
+                }
+              />
+              <AppearanceCard
+                prefs={prefs}
+                saving={prefsMutation.isPending}
+                onChange={(patch) => prefsMutation.mutate(patch)}
+              />
+            </>
           ) : null}
-          <button
-            type="submit"
-            className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            Salvar
-          </button>
-        </div>
-      </form>
 
-      <p className="mt-6 px-1 text-center text-xs text-muted-foreground">
-        Suas informações ficam no seu dispositivo. Sincronização em nuvem chegará em breve.
-      </p>
+          <PrivacyCard email={email} />
+          <AccountCard
+            email={email}
+            createdAt={auth.user?.created_at ?? null}
+            confirmed={!!auth.user?.email_confirmed_at || !!auth.user?.confirmed_at}
+          />
+          <DangerZone onCleared={() => qc.invalidateQueries({ queryKey: ["atlas-profile"] })} />
+
+          <ProfileSheet
+            open={editOpen}
+            onOpenChange={setEditOpen}
+            profile={profileQuery.data ?? null}
+            email={email}
+            avatarUrl={avatarQuery.data ?? null}
+            onSaved={() => {
+              qc.invalidateQueries({ queryKey: ["atlas-profile"] });
+              qc.invalidateQueries({ queryKey: ["atlas-avatar"] });
+            }}
+          />
+        </>
+      )}
     </AppShell>
   );
 }
