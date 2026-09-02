@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RotinaRouteImport } from './routes/rotina'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PerfilRouteImport } from './routes/perfil'
 import { Route as ObjetivosRouteImport } from './routes/objetivos'
 import { Route as FinanceiroRouteImport } from './routes/financeiro'
@@ -18,6 +19,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const RotinaRoute = RotinaRouteImport.update({
   id: '/rotina',
   path: '/rotina',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PerfilRoute = PerfilRouteImport.update({
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/financeiro': typeof FinanceiroRoute
   '/objetivos': typeof ObjetivosRoute
   '/perfil': typeof PerfilRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/rotina': typeof RotinaRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/financeiro': typeof FinanceiroRoute
   '/objetivos': typeof ObjetivosRoute
   '/perfil': typeof PerfilRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/rotina': typeof RotinaRoute
 }
 export interface FileRoutesById {
@@ -61,14 +69,34 @@ export interface FileRoutesById {
   '/financeiro': typeof FinanceiroRoute
   '/objetivos': typeof ObjetivosRoute
   '/perfil': typeof PerfilRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/rotina': typeof RotinaRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/financeiro' | '/objetivos' | '/perfil' | '/rotina'
+  fullPaths:
+    | '/'
+    | '/financeiro'
+    | '/objetivos'
+    | '/perfil'
+    | '/reset-password'
+    | '/rotina'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/financeiro' | '/objetivos' | '/perfil' | '/rotina'
-  id: '__root__' | '/' | '/financeiro' | '/objetivos' | '/perfil' | '/rotina'
+  to:
+    | '/'
+    | '/financeiro'
+    | '/objetivos'
+    | '/perfil'
+    | '/reset-password'
+    | '/rotina'
+  id:
+    | '__root__'
+    | '/'
+    | '/financeiro'
+    | '/objetivos'
+    | '/perfil'
+    | '/reset-password'
+    | '/rotina'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,6 +104,7 @@ export interface RootRouteChildren {
   FinanceiroRoute: typeof FinanceiroRoute
   ObjetivosRoute: typeof ObjetivosRoute
   PerfilRoute: typeof PerfilRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   RotinaRoute: typeof RotinaRoute
 }
 
@@ -86,6 +115,13 @@ declare module '@tanstack/react-router' {
       path: '/rotina'
       fullPath: '/rotina'
       preLoaderRoute: typeof RotinaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/perfil': {
@@ -124,6 +160,7 @@ const rootRouteChildren: RootRouteChildren = {
   FinanceiroRoute: FinanceiroRoute,
   ObjetivosRoute: ObjetivosRoute,
   PerfilRoute: PerfilRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   RotinaRoute: RotinaRoute,
 }
 export const routeTree = rootRouteImport
