@@ -114,7 +114,10 @@ export async function updatePreferences(
   const uid = await requireUid();
   const { data, error } = await supabase
     .from("atlas_preferences")
-    .upsert({ ...patch, user_id: uid }, { onConflict: "user_id" })
+    .upsert(
+      { ...patch, memory_categories: patch.memory_categories as never, user_id: uid },
+      { onConflict: "user_id" },
+    )
     .select()
     .single();
   if (error) throw error;
