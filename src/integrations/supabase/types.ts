@@ -537,6 +537,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          intro_seen_at: string | null
           nickname: string | null
           occupation: string | null
           updated_at: string
@@ -550,6 +551,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          intro_seen_at?: string | null
           nickname?: string | null
           occupation?: string | null
           updated_at?: string
@@ -563,6 +565,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          intro_seen_at?: string | null
           nickname?: string | null
           occupation?: string | null
           updated_at?: string

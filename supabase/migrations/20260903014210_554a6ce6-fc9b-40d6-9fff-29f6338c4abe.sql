@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS intro_seen_at TIMESTAMP WITH TIME ZONE;
