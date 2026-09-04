@@ -48,6 +48,19 @@ export async function saveProfile(input: ProfileInput): Promise<Profile> {
   return data as Profile;
 }
 
+/** Marca que a introdução de primeiro acesso já foi vista por este usuário. */
+export async function markIntroSeen(): Promise<void> {
+  const uid = await requireUid();
+  const { error } = await supabase
+    .from("profiles")
+    .upsert(
+      { user_id: uid, intro_seen_at: new Date().toISOString() },
+      { onConflict: "user_id" },
+    );
+  if (error) throw error;
+}
+
+
 /* ---------------------------- Avatar ---------------------------- */
 
 export async function uploadAvatar(file: File): Promise<string> {
