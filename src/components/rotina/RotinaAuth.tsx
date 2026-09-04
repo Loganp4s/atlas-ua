@@ -70,10 +70,11 @@ export function RotinaAuth({
   return (
     <>
       <PageHeader
-        eyebrow="Rotina"
+        eyebrow={eyebrow}
         title="Entre para continuar"
-        description="Suas tarefas, agenda, hábitos e notas ficam salvos com segurança na sua conta."
+        description={description}
       />
+
       <Card className="flex flex-col gap-4">
         <Button
           type="button"
