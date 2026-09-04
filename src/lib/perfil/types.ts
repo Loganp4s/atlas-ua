@@ -27,6 +27,8 @@ export interface Profile {
   occupation: string | null;
   city: string | null;
   birth_date: string | null;
+  intro_seen_at?: string | null;
+
   created_at: string;
   updated_at: string;
 }
