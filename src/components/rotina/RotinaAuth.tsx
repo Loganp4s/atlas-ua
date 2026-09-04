@@ -10,7 +10,13 @@ import { Button } from "@/components/ui/button";
 
 type Mode = "signin" | "signup";
 
-export function RotinaAuth() {
+export function RotinaAuth({
+  eyebrow = "Rotina",
+  description = "Suas tarefas, agenda, hábitos e notas ficam salvos com segurança na sua conta.",
+}: {
+  eyebrow?: string;
+  description?: string;
+} = {}) {
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
