@@ -70,19 +70,21 @@ export function ChallengeCard({ userId }: { userId: string }) {
   async function share() {
     if (!result) return;
     const text = shareText(challenge, result);
+    const nav = navigator as Navigator & {
+      share?: (d: { text: string }) => Promise<void>;
+    };
     try {
-      if (typeof navigator !== "undefined" && "share" in navigator) {
-        await (navigator as Navigator & { share: (d: { text: string }) => Promise<void> }).share(
-          { text },
-        );
+      if (typeof nav.share === "function") {
+        await nav.share({ text });
         return;
       }
-      await navigator.clipboard.writeText(text);
+      await nav.clipboard.writeText(text);
       toast.success("Desafio copiado.");
     } catch {
       /* usuário cancelou */
     }
   }
+
 
   return (
     <section className="mb-10">
