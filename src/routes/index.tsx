@@ -1,255 +1,153 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
-import { ArrowUpRight, CalendarClock, Repeat, Target } from "lucide-react";
-import { AppShell, Card } from "@/components/atlas/AppShell";
-import { AtlasComposer } from "@/components/atlas/AtlasComposer";
-import { TaskList } from "@/components/atlas/TaskList";
-import { ProgressBar } from "@/components/atlas/ProgressBar";
-import { useEvents, useGoals, useProfile, useRoutines, useTasks } from "@/hooks/useAtlas";
+import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AppShell } from "@/components/atlas/AppShell";
+import { RotinaAuth } from "@/components/rotina/RotinaAuth";
+import { useAuthUser } from "@/components/rotina/useAuthUser";
+import { AtlasPresence } from "@/components/inicial/AtlasPresence";
+import { IntroScreen } from "@/components/inicial/IntroScreen";
+import { ChallengeCard } from "@/components/inicial/ChallengeCard";
 import {
-  firstName,
-  formatLongDate,
-  formatShortDate,
-  greetingForNow,
-  todayISO,
-} from "@/lib/atlas/format";
+  ClosingSection,
+  DaySection,
+  PossibilitySection,
+  WorldCarousel,
+} from "@/components/inicial/HomeSections";
+import { getAvatarUrl, getProfile, markIntroSeen } from "@/lib/perfil/api";
+import { initialsFrom } from "@/lib/perfil/types";
+import { useHomeData } from "@/lib/inicial/useHomeData";
+import { dayItems, possibility, worldCards } from "@/lib/inicial/derive";
+import { contextPhrase, greeting, longDatePtBr } from "@/lib/inicial/phrases";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Meu Dia — Atlas" },
+      { title: "Início — Atlas, seu assistente pessoal" },
       {
         name: "description",
-        content: "Meu Dia no Atlas: prioridades, compromissos e progresso do seu dia com calma.",
+        content:
+          "A tela inicial do Atlas: escreva o que está na sua cabeça e veja o essencial do seu dia, com calma.",
       },
-      { property: "og:title", content: "Meu Dia — Atlas" },
+      { property: "og:title", content: "Início — Atlas, seu assistente pessoal" },
       {
         property: "og:description",
-        content: "Um espaço tranquilo para organizar seu dia, um passo de cada vez.",
+        content: "Um espaço tranquilo para organizar sua vida, um passo de cada vez.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: HomePage,
 });
 
 function HomePage() {
-  const { profile } = useProfile();
-  const { tasks, toggleTask, removeTask } = useTasks();
-  const { events } = useEvents();
-  const { goals } = useGoals();
-  const { routines } = useRoutines();
+  const auth = useAuthUser();
 
-  const today = todayISO();
-  const greeting = greetingForNow();
-  const dateLabel = formatLongDate();
-  const displayName = firstName(profile.name);
+  if (auth.status === "loading") {
+    return (
+      <AppShell>
+        <div className="flex flex-col gap-4">
+          <div className="h-6 w-40 animate-pulse rounded-full bg-secondary" />
+          <div className="h-10 w-64 animate-pulse rounded-full bg-secondary" />
+          <div className="h-32 w-full animate-pulse rounded-2xl bg-secondary" />
+        </div>
+      </AppShell>
+    );
+  }
 
-  const todaysTasks = useMemo(
-    () => tasks.filter((t) => !t.dueDate || t.dueDate === today),
-    [tasks, today],
-  );
+  if (auth.status === "signedOut") {
+    return (
+      <AppShell>
+        <RotinaAuth
+          eyebrow="Atlas"
+          description="Entre para o Atlas guardar sua rotina, seus objetivos e suas finanças com segurança."
+        />
+      </AppShell>
+    );
+  }
 
-  const progress = useMemo(() => {
-    if (todaysTasks.length === 0) return 0;
-    const done = todaysTasks.filter((t) => t.done).length;
-    return Math.round((done / todaysTasks.length) * 100);
-  }, [todaysTasks]);
+  return <HomeSignedIn userId={auth.user!.id} />;
+}
 
-  const upcomingEvents = useMemo(() => {
-    return [...events]
-      .filter((e) => e.date >= today)
-      .sort((a, b) => `${a.date}${a.time ?? ""}`.localeCompare(`${b.date}${b.time ?? ""}`))
-      .slice(0, 3);
-  }, [events, today]);
+function HomeSignedIn({ userId }: { userId: string }) {
+  const qc = useQueryClient();
+  const [leavingIntro, setLeavingIntro] = useState(false);
 
-  const activeGoals = useMemo(
-    () => goals.filter((g) => g.status === "ativo").slice(0, 2),
-    [goals],
-  );
+  const profileQuery = useQuery({ queryKey: ["atlas-profile"], queryFn: getProfile });
+  const profile = profileQuery.data ?? null;
+
+  const avatarQuery = useQuery({
+    queryKey: ["atlas-avatar", profile?.avatar_url ?? null],
+    queryFn: () => getAvatarUrl(profile?.avatar_url ?? null),
+    enabled: !!profile?.avatar_url,
+  });
+
+  const seeIntro = useMutation({
+    mutationFn: markIntroSeen,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["atlas-profile"] }),
+  });
+
+  const data = useHomeData(true);
+
+  const items = useMemo(() => dayItems(data), [data]);
+  const suggestion = useMemo(() => possibility(data), [data]);
+  const cards = useMemo(() => worldCards(data), [data]);
+
+  const name = (profile?.nickname || profile?.display_name || "").trim();
+  const firstName = name ? name.split(/\s+/)[0] : "";
+
+  const introPending = profileQuery.isSuccess && !profile?.intro_seen_at;
+  if (introPending && !leavingIntro) {
+    return (
+      <IntroScreen
+        finishing={seeIntro.isPending}
+        onFinish={() => {
+          setLeavingIntro(true);
+          seeIntro.mutate();
+        }}
+      />
+    );
+  }
 
   return (
     <AppShell>
-      <header className="mb-8">
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          {dateLabel}
-        </p>
-        <h1 className="mt-2 font-display text-3xl font-medium text-foreground">
-          {greeting}
-          {displayName ? `, ${displayName}` : ""}.
-        </h1>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Vamos organizar seu dia com calma.
-        </p>
+      <header className="mb-9 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            {longDatePtBr()}
+          </p>
+          <h1 className="mt-2 font-display text-3xl font-medium leading-snug text-foreground">
+            {greeting()}
+            {firstName ? `, ${firstName}` : ""}.
+          </h1>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            {contextPhrase()}
+          </p>
+        </div>
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary text-sm font-medium text-muted-foreground">
+          {avatarQuery.data ? (
+            <img
+              src={avatarQuery.data}
+              alt={name ? `Foto de ${name}` : "Sua foto de perfil"}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            initialsFrom(profile?.display_name, null) || "A"
+          )}
+        </span>
       </header>
 
-      <AtlasComposer />
+      <AtlasPresence />
 
-      <section className="mb-8">
-        <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-primary p-6 text-primary-foreground">
-          <div className="relative z-10">
-            <p className="font-display text-xs font-medium uppercase tracking-[0.18em] text-primary-foreground/70">
-              Progresso do dia
-            </p>
-            <h2 className="mt-3 font-display text-2xl font-medium leading-snug">
-              {todaysTasks.length === 0
-                ? "Comece adicionando o que importa hoje."
-                : progress === 100
-                  ? "Você concluiu tudo por hoje."
-                  : `Você avançou ${progress}% hoje.`}
-            </h2>
-            {todaysTasks.length > 0 ? (
-              <div className="mt-5">
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-primary-foreground/15">
-                  <div
-                    className="h-full rounded-full bg-primary-foreground transition-[width] duration-500"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                <p className="mt-2 text-xs text-primary-foreground/70">
-                  {todaysTasks.filter((t) => t.done).length} de {todaysTasks.length} tarefas
-                </p>
-              </div>
-            ) : null}
-          </div>
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-accent/20 blur-3xl"
-          />
-        </div>
-      </section>
+      <DaySection items={items} />
 
-      <section className="mb-8">
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="font-display text-lg font-medium text-foreground">Hoje</h2>
-          <span className="text-xs text-muted-foreground">Prioridades</span>
-        </div>
-        <TaskList
-          tasks={todaysTasks}
-          onToggle={toggleTask}
-          onRemove={removeTask}
-          emptyTitle="Seu dia está em branco"
-          emptyDescription="Escreva no Atlas o que precisa fazer — ele organiza para você."
-        />
-      </section>
+      {suggestion ? <PossibilitySection possibility={suggestion} /> : null}
 
-      <section className="mb-8">
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="font-display text-lg font-medium text-foreground">Próximos</h2>
-          <Link to="/rotina" className="text-xs text-muted-foreground hover:text-foreground">
-            Ver agenda
-          </Link>
-        </div>
-        {upcomingEvents.length === 0 ? (
-          <Card className="flex items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-muted-foreground">
-              <CalendarClock className="h-4 w-4" strokeWidth={1.75} />
-            </span>
-            <div>
-              <p className="text-sm font-medium text-foreground">Nenhum compromisso à vista</p>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                Quando marcar algo importante, ele aparece aqui.
-              </p>
-            </div>
-          </Card>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {upcomingEvents.map((event) => (
-              <li
-                key={event.id}
-                className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-foreground">
-                  <CalendarClock className="h-4 w-4" strokeWidth={1.75} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">{event.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatShortDate(event.date)}
-                    {event.time ? ` · ${event.time}` : ""}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <WorldCarousel cards={cards} />
 
-      <section>
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="font-display text-lg font-medium text-foreground">Seus objetivos</h2>
-          <Link to="/objetivos" className="text-xs text-muted-foreground hover:text-foreground">
-            Ver todos
-          </Link>
-        </div>
-        {activeGoals.length === 0 ? (
-          <Card className="flex items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-muted-foreground">
-              <Target className="h-4 w-4" strokeWidth={1.75} />
-            </span>
-            <div>
-              <p className="text-sm font-medium text-foreground">Nenhum objetivo ativo</p>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                Transforme um sonho grande em algo do dia a dia.
-              </p>
-            </div>
-          </Card>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {activeGoals.map((goal) => (
-              <li
-                key={goal.id}
-                className="rounded-2xl border border-border/70 bg-card p-4"
-              >
-                <div className="mb-2 flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate font-display text-base font-medium text-foreground">
-                      {goal.name}
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {goal.deadline ? `Até ${formatShortDate(goal.deadline)}` : "Sem prazo"}
-                    </p>
-                  </div>
-                  <Link
-                    to="/objetivos"
-                    className="text-muted-foreground hover:text-foreground"
-                    aria-label="Abrir objetivos"
-                  >
-                    <ArrowUpRight className="h-4 w-4" strokeWidth={1.75} />
-                  </Link>
-                </div>
-                <ProgressBar value={goal.progress} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <ChallengeCard userId={userId} />
 
-      {routines.length > 0 ? (
-        <section className="mt-8">
-          <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="font-display text-lg font-medium text-foreground">Rotinas</h2>
-            <span className="text-xs text-muted-foreground">Hábitos</span>
-          </div>
-          <ul className="flex flex-col gap-2">
-            {routines.slice(0, 4).map((r) => (
-              <li
-                key={r.id}
-                className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-foreground">
-                  <Repeat className="h-4 w-4" strokeWidth={1.75} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">{r.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {r.days.length === 0 ? "Todos os dias" : r.days.join(" · ")}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <ClosingSection note="Sem pressa. O Atlas continua aqui quando você voltar." />
     </AppShell>
   );
 }
