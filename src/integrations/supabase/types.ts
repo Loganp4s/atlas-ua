@@ -417,6 +417,8 @@ export type Database = {
           emoji: string
           id: string
           integrations: Json
+          linked_goal_id: string | null
+          linked_habit_id: string | null
           manual_progress: number
           name: string
           notes: string | null
@@ -442,6 +444,8 @@ export type Database = {
           emoji?: string
           id?: string
           integrations?: Json
+          linked_goal_id?: string | null
+          linked_habit_id?: string | null
           manual_progress?: number
           name: string
           notes?: string | null
@@ -467,6 +471,8 @@ export type Database = {
           emoji?: string
           id?: string
           integrations?: Json
+          linked_goal_id?: string | null
+          linked_habit_id?: string | null
           manual_progress?: number
           name?: string
           notes?: string | null
@@ -479,7 +485,22 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "obj_objectives_linked_goal_id_fkey"
+            columns: ["linked_goal_id"]
+            isOneToOne: false
+            referencedRelation: "fin_goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obj_objectives_linked_habit_id_fkey"
+            columns: ["linked_habit_id"]
+            isOneToOne: false
+            referencedRelation: "rotina_habits"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       obj_steps: {
         Row: {
@@ -578,6 +599,7 @@ export type Database = {
           color: string
           created_at: string
           description: string | null
+          end_date: string | null
           end_time: string | null
           event_date: string
           id: string
@@ -592,6 +614,7 @@ export type Database = {
           color?: string
           created_at?: string
           description?: string | null
+          end_date?: string | null
           end_time?: string | null
           event_date: string
           id?: string
@@ -606,6 +629,7 @@ export type Database = {
           color?: string
           created_at?: string
           description?: string | null
+          end_date?: string | null
           end_time?: string | null
           event_date?: string
           id?: string
