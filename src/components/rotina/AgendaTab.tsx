@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { EventDialog } from "./EventDialog";
 import { todayYmd } from "@/lib/rotina/streak";
+import { datesCovered, periodLabel, periodPosition } from "@/lib/rotina/events";
 
 const MONTHS = [
   "Janeiro",
