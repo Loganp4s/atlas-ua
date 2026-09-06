@@ -51,7 +51,12 @@ export function EventDialog({
     if (open) {
       setTitle(initial?.title ?? "");
       setDescription(initial?.description ?? "");
-      setEventDate(initial?.event_date ?? defaultDate);
+      const start = initial?.event_date ?? defaultDate;
+      const end =
+        initial?.end_date && initial.end_date > start ? initial.end_date : start;
+      setEventDate(start);
+      setEndDate(end);
+      setPeriod(end > start);
       setStartTime(initial?.start_time?.slice(0, 5) ?? "");
       setEndTime(initial?.end_time?.slice(0, 5) ?? "");
       setLocation(initial?.location ?? "");
