@@ -38,6 +38,8 @@ export function EventDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [eventDate, setEventDate] = useState(defaultDate);
+  const [endDate, setEndDate] = useState(defaultDate);
+  const [period, setPeriod] = useState(false);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [location, setLocation] = useState("");
