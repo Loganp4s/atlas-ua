@@ -97,12 +97,15 @@ export function AgendaTab() {
     queryFn: listEvents,
   });
 
+  // Um único registro pode ocupar vários dias: aparece em todos eles.
   const eventsByDate = useMemo(() => {
     const map = new Map<string, RotinaEvent[]>();
     for (const e of events) {
-      const arr = map.get(e.event_date) ?? [];
-      arr.push(e);
-      map.set(e.event_date, arr);
+      for (const date of datesCovered(e)) {
+        const arr = map.get(date) ?? [];
+        arr.push(e);
+        map.set(date, arr);
+      }
     }
     return map;
   }, [events]);
