@@ -96,13 +96,29 @@ export interface EventInput {
   reminder_minutes?: number | null;
 }
 
+/** Valida e normaliza o período do compromisso. */
+function normalizeEvent<T extends Partial<EventInput>>(input: T): T {
+  const start = input.event_date;
+  const end = input.end_date;
+  if (start && Number.isNaN(Date.parse(start))) throw new Error("Data inválida.");
+  if (end && Number.isNaN(Date.parse(end))) throw new Error("Data final inválida.");
+  if (start && end && end < start)
+    throw new Error("A data final não pode ser anterior à inicial.");
+  return {
+    ...input,
+    ...(end !== undefined
+      ? { end_date: end && start && end > start ? end : (start ?? end ?? null) }
+      : {}),
+  };
+}
+
 export async function createEvent(input: EventInput): Promise<RotinaEvent> {
   const { data: auth } = await supabase.auth.getUser();
   const uid = auth.user?.id;
   if (!uid) throw new Error("Não autenticado");
   const { data, error } = await supabase
     .from("rotina_events")
-    .insert({ ...input, user_id: uid })
+    .insert({ ...normalizeEvent(input), user_id: uid })
     .select()
     .single();
   if (error) throw error;
@@ -115,7 +131,7 @@ export async function updateEvent(
 ): Promise<RotinaEvent> {
   const { data, error } = await supabase
     .from("rotina_events")
-    .update(patch)
+    .update(normalizeEvent(patch))
     .eq("id", id)
     .select()
     .single();
