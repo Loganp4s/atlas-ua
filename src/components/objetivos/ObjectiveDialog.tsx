@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -22,6 +23,10 @@ import {
 import { CATEGORIES, PRIORITIES } from "@/lib/objetivos/meta";
 import { validateObjective, type ObjectiveInput } from "@/lib/objetivos/api";
 import type { ObjCategory, ObjObjective, ObjPriority } from "@/lib/objetivos/types";
+import { listGoals } from "@/lib/financeiro/api";
+import { listHabits } from "@/lib/rotina/api";
+
+const NONE = "__none__";
 
 const EMOJIS = ["🎯", "💰", "🏋️", "📚", "💼", "🏠", "❤️", "✈️", "🚗", "🚀", "🌱", "🧠"];
 
@@ -45,6 +50,8 @@ export function ObjectiveDialog({ open, onOpenChange, initial, onSubmit }: Props
   const [targetAmount, setTargetAmount] = useState("");
   const [currentAmount, setCurrentAmount] = useState("");
   const [notes, setNotes] = useState("");
+  const [linkedGoal, setLinkedGoal] = useState<string>(NONE);
+  const [linkedHabit, setLinkedHabit] = useState<string>(NONE);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -61,7 +68,20 @@ export function ObjectiveDialog({ open, onOpenChange, initial, onSubmit }: Props
     setTargetAmount(initial?.target_amount != null ? String(initial.target_amount) : "");
     setCurrentAmount(initial?.current_amount ? String(initial.current_amount) : "");
     setNotes(initial?.notes ?? "");
+    setLinkedGoal(initial?.linked_goal_id ?? NONE);
+    setLinkedHabit(initial?.linked_habit_id ?? NONE);
   }, [open, initial]);
+
+  const { data: goals = [] } = useQuery({
+    queryKey: ["financeiro", "goals"],
+    queryFn: listGoals,
+    enabled: open,
+  });
+  const { data: habits = [] } = useQuery({
+    queryKey: ["rotina", "habits"],
+    queryFn: listHabits,
+    enabled: open,
+  });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -78,6 +98,8 @@ export function ObjectiveDialog({ open, onOpenChange, initial, onSubmit }: Props
       target_amount: targetAmount ? Number(targetAmount) : null,
       current_amount: currentAmount ? Number(currentAmount) : 0,
       notes,
+      linked_goal_id: linkedGoal === NONE ? null : linkedGoal,
+      linked_habit_id: linkedHabit === NONE ? null : linkedHabit,
       ai_summary: description.trim() ? description.trim().slice(0, 240) : name.trim(),
     };
     const problem = validateObjective(input);
@@ -253,6 +275,40 @@ export function ObjectiveDialog({ open, onOpenChange, initial, onSubmit }: Props
                 onChange={(e) => setCurrentAmount(e.target.value)}
               />
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="obj-goal">Meta financeira ligada (opcional)</Label>
+            <Select value={linkedGoal} onValueChange={setLinkedGoal}>
+              <SelectTrigger id="obj-goal">
+                <SelectValue placeholder="Nenhuma" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>Nenhuma</SelectItem>
+                {goals.map((g) => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="obj-habit">Hábito ligado (opcional)</Label>
+            <Select value={linkedHabit} onValueChange={setLinkedHabit}>
+              <SelectTrigger id="obj-habit">
+                <SelectValue placeholder="Nenhum" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>Nenhum</SelectItem>
+                {habits.map((h) => (
+                  <SelectItem key={h.id} value={h.id}>
+                    {h.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex flex-col gap-1.5">

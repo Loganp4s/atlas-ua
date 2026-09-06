@@ -55,6 +55,10 @@ export interface ObjObjective {
   target_amount: number | null;
   current_amount: number;
   notes: string | null;
+  /** Conexão explícita com uma meta financeira (fin_goals). */
+  linked_goal_id: string | null;
+  /** Conexão explícita com um hábito (rotina_habits). */
+  linked_habit_id: string | null;
   ai_summary: string | null;
   ai_context: Record<string, unknown>;
   simulation: ObjSimulation;

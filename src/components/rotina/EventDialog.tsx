@@ -38,6 +38,8 @@ export function EventDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [eventDate, setEventDate] = useState(defaultDate);
+  const [endDate, setEndDate] = useState(defaultDate);
+  const [period, setPeriod] = useState(false);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [location, setLocation] = useState("");
@@ -49,7 +51,12 @@ export function EventDialog({
     if (open) {
       setTitle(initial?.title ?? "");
       setDescription(initial?.description ?? "");
-      setEventDate(initial?.event_date ?? defaultDate);
+      const start = initial?.event_date ?? defaultDate;
+      const end =
+        initial?.end_date && initial.end_date > start ? initial.end_date : start;
+      setEventDate(start);
+      setEndDate(end);
+      setPeriod(end > start);
       setStartTime(initial?.start_time?.slice(0, 5) ?? "");
       setEndTime(initial?.end_time?.slice(0, 5) ?? "");
       setLocation(initial?.location ?? "");
@@ -58,15 +65,19 @@ export function EventDialog({
     }
   }, [open, initial, defaultDate]);
 
+  const invalidPeriod = period && !!endDate && endDate < eventDate;
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim() || !eventDate) return;
+    if (invalidPeriod) return;
     setSaving(true);
     try {
       await onSubmit({
         title: title.trim(),
         description: description.trim() || null,
         event_date: eventDate,
+        end_date: period && endDate > eventDate ? endDate : eventDate,
         start_time: startTime || null,
         end_time: endTime || null,
         location: location.trim() || null,
@@ -106,15 +117,64 @@ export function EventDialog({
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="ev-date">Data</Label>
-            <Input
-              id="ev-date"
-              type="date"
-              value={eventDate}
-              onChange={(e) => setEventDate(e.target.value)}
-              required
-            />
+            <Label>Duração</Label>
+            <div className="flex gap-1.5">
+              {[
+                { v: false, label: "Dia único" },
+                { v: true, label: "Período" },
+              ].map((opt) => (
+                <button
+                  key={opt.label}
+                  type="button"
+                  onClick={() => {
+                    setPeriod(opt.v);
+                    if (opt.v && endDate < eventDate) setEndDate(eventDate);
+                  }}
+                  className={
+                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors " +
+                    (period === opt.v
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border text-muted-foreground hover:text-foreground")
+                  }
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ev-date">{period ? "Data inicial" : "Data"}</Label>
+              <Input
+                id="ev-date"
+                type="date"
+                value={eventDate}
+                onChange={(e) => {
+                  setEventDate(e.target.value);
+                  if (endDate < e.target.value) setEndDate(e.target.value);
+                }}
+                required
+              />
+            </div>
+            {period ? (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="ev-end-date">Data final</Label>
+                <Input
+                  id="ev-end-date"
+                  type="date"
+                  value={endDate}
+                  min={eventDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  required
+                />
+              </div>
+            ) : null}
+          </div>
+          {invalidPeriod ? (
+            <p className="text-xs text-destructive">
+              A data final não pode ser anterior à inicial.
+            </p>
+          ) : null}
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="ev-start">Início</Label>
@@ -196,7 +256,7 @@ export function EventDialog({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={saving || !title.trim()}>
+            <Button type="submit" disabled={saving || !title.trim() || invalidPeriod}>
               {saving ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>

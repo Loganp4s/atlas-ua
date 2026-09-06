@@ -3,6 +3,7 @@ import { computeProgress } from "@/lib/objetivos/meta";
 import { computeBalance } from "@/lib/financeiro/api";
 import { formatBRL } from "@/lib/financeiro/format";
 import { currentStreak, todayYmd } from "@/lib/rotina/streak";
+import { coversDate, eventEndDate, periodLabel } from "@/lib/rotina/events";
 
 export interface DayItem {
   id: string;
@@ -22,11 +23,11 @@ export function dayItems(data: HomeData, limit = 4): DayItem[] {
   const weekday = new Date().getDay();
 
   const fromEvents: DayItem[] = data.events
-    .filter((e) => e.event_date === today)
+    .filter((e) => coversDate(e, today))
     .map((e) => ({
       id: `e-${e.id}`,
       time: hhmm(e.start_time),
-      title: e.title,
+      title: periodLabel(e) ? `${e.title} (em andamento)` : e.title,
       kind: "evento" as const,
     }));
 
@@ -238,7 +239,10 @@ export function worldCards(data: HomeData): WorldCard[] {
     );
     const done = dueToday.filter((h) => doneToday.has(h.id)).length;
     const bestStreak = data.habits.reduce((best, h) => {
-      const s = currentStreak(data.habitLogs.filter((l) => l.habit_id === h.id));
+      const s = currentStreak(
+        data.habitLogs.filter((l) => l.habit_id === h.id),
+        h.days_of_week,
+      );
       return Math.max(best, s);
     }, 0);
     cards.push({
@@ -263,7 +267,7 @@ export function worldCards(data: HomeData): WorldCard[] {
   /* Rotinas */
   const pendingTasks = data.tasks.filter((t) => !t.done);
   const nextEvent = data.events
-    .filter((e) => e.event_date >= today)
+    .filter((e) => eventEndDate(e) >= today)
     .sort((a, b) =>
       `${a.event_date}${a.start_time ?? ""}`.localeCompare(
         `${b.event_date}${b.start_time ?? ""}`,

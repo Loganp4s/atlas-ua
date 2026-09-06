@@ -78,17 +78,8 @@ export interface FinBill {
   updated_at: string;
 }
 
-export interface FinObjective {
-  id: string;
-  user_id: string;
-  name: string;
-  description: string | null;
-  priority: FinPriority;
-  desired_date: string | null;
-  estimated_amount: number | null;
-  status: FinObjectiveStatus;
-  linked_goal_id: string | null;
-  linked_habit_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
+/**
+ * Objetivos agora vivem exclusivamente no módulo central (obj_objectives).
+ * A tabela legada fin_objectives foi mantida no banco apenas como histórico;
+ * Finanças cuida de entradas, saídas, metas, contas e relatórios.
+ */

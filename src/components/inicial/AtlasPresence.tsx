@@ -95,6 +95,7 @@ export function AtlasPresence() {
         await createEvent({
           title: interpretation.title || raw,
           event_date: interpretation.date ?? todayYmd(),
+          end_date: interpretation.date ?? todayYmd(),
           start_time: interpretation.time ? `${interpretation.time}:00` : null,
           color: "#6366f1",
         });

@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { EventDialog } from "./EventDialog";
 import { todayYmd } from "@/lib/rotina/streak";
+import { datesCovered, periodLabel, periodPosition } from "@/lib/rotina/events";
 
 const MONTHS = [
   "Janeiro",
@@ -97,12 +98,15 @@ export function AgendaTab() {
     queryFn: listEvents,
   });
 
+  // Um único registro pode ocupar vários dias: aparece em todos eles.
   const eventsByDate = useMemo(() => {
     const map = new Map<string, RotinaEvent[]>();
     for (const e of events) {
-      const arr = map.get(e.event_date) ?? [];
-      arr.push(e);
-      map.set(e.event_date, arr);
+      for (const date of datesCovered(e)) {
+        const arr = map.get(date) ?? [];
+        arr.push(e);
+        map.set(date, arr);
+      }
     }
     return map;
   }, [events]);
@@ -274,6 +278,16 @@ export function AgendaTab() {
                   {e.end_time ? ` – ${e.end_time.slice(0, 5)}` : ""}
                   {e.location ? ` · ${e.location}` : ""}
                 </p>
+                {periodLabel(e) ? (
+                  <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-foreground">
+                    {periodPosition(e, selected) === "start"
+                      ? "Começa hoje"
+                      : periodPosition(e, selected) === "end"
+                        ? "Último dia"
+                        : "Em andamento"}
+                    <span className="text-muted-foreground">{periodLabel(e)}</span>
+                  </p>
+                ) : null}
                 {e.description ? (
                   <p className="mt-1 text-xs text-muted-foreground/90">
                     {e.description}
