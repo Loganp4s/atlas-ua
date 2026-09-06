@@ -34,6 +34,8 @@ export interface ObjectiveInput {
   target_amount?: number | null;
   current_amount?: number;
   notes?: string | null;
+  linked_goal_id?: string | null;
+  linked_habit_id?: string | null;
   ai_summary?: string | null;
   simulation?: ObjSimulation;
   integrations?: ObjIntegrations;
