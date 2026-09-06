@@ -137,7 +137,7 @@ export function HabitsTab() {
         <ul className="flex flex-col gap-2">
           {habits.map((h) => {
             const habitLogs = logsByHabit.get(h.id) ?? [];
-            const streak = currentStreak(habitLogs);
+            const streak = currentStreak(habitLogs, h.days_of_week);
             const doneToday = habitLogs.some((l) => l.log_date === today);
             return (
               <li
