@@ -5,7 +5,6 @@ import type {
   FinBillStatus,
   FinGoal,
   FinGoalContribution,
-  FinObjective,
   FinRecurrence,
   FinTransaction,
 } from "./types";
@@ -245,54 +244,6 @@ export async function toggleBillPaid(bill: FinBill): Promise<FinBill> {
 }
 export async function deleteBill(id: string): Promise<void> {
   const { error } = await sb.from("fin_bills").delete().eq("id", id);
-  if (error) throw error;
-}
-
-/* -------- Objectives -------- */
-export async function listObjectives(): Promise<FinObjective[]> {
-  const { data, error } = await sb
-    .from("fin_objectives")
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as FinObjective[];
-}
-export interface ObjectiveInput {
-  name: string;
-  description?: string | null;
-  priority: FinObjective["priority"];
-  desired_date?: string | null;
-  estimated_amount?: number | null;
-  status?: FinObjective["status"];
-  linked_goal_id?: string | null;
-}
-export async function createObjective(
-  input: ObjectiveInput,
-): Promise<FinObjective> {
-  const user_id = await uid();
-  const { data, error } = await sb
-    .from("fin_objectives")
-    .insert({ ...input, user_id })
-    .select()
-    .single();
-  if (error) throw error;
-  return data as FinObjective;
-}
-export async function updateObjective(
-  id: string,
-  patch: Partial<ObjectiveInput>,
-): Promise<FinObjective> {
-  const { data, error } = await sb
-    .from("fin_objectives")
-    .update(patch)
-    .eq("id", id)
-    .select()
-    .single();
-  if (error) throw error;
-  return data as FinObjective;
-}
-export async function deleteObjective(id: string): Promise<void> {
-  const { error } = await sb.from("fin_objectives").delete().eq("id", id);
   if (error) throw error;
 }
 

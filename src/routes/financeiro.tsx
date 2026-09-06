@@ -7,7 +7,6 @@ import { FinanceAuth } from "@/components/financeiro/FinanceAuth";
 import { ResumoTab } from "@/components/financeiro/ResumoTab";
 import { MovimentacoesTab } from "@/components/financeiro/MovimentacoesTab";
 import { MetasTab } from "@/components/financeiro/MetasTab";
-import { ObjetivosTab } from "@/components/financeiro/ObjetivosTab";
 import { ContasTab } from "@/components/financeiro/ContasTab";
 import { RelatoriosTab } from "@/components/financeiro/RelatoriosTab";
 import { InsightsTab } from "@/components/financeiro/InsightsTab";
@@ -35,7 +34,6 @@ type Tab =
   | "resumo"
   | "mov"
   | "metas"
-  | "objetivos"
   | "contas"
   | "relatorios"
   | "insights";
@@ -44,7 +42,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "resumo", label: "Resumo" },
   { id: "mov", label: "Movimentações" },
   { id: "metas", label: "Metas" },
-  { id: "objetivos", label: "Objetivos" },
   { id: "contas", label: "Contas" },
   { id: "relatorios", label: "Relatórios" },
   { id: "insights", label: "Insights" },
@@ -109,8 +106,6 @@ function FinanceiroPage() {
         <MovimentacoesTab />
       ) : tab === "metas" ? (
         <MetasTab />
-      ) : tab === "objetivos" ? (
-        <ObjetivosTab />
       ) : tab === "contas" ? (
         <ContasTab />
       ) : tab === "relatorios" ? (
