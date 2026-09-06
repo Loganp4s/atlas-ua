@@ -65,15 +65,19 @@ export function EventDialog({
     }
   }, [open, initial, defaultDate]);
 
+  const invalidPeriod = period && !!endDate && endDate < eventDate;
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim() || !eventDate) return;
+    if (invalidPeriod) return;
     setSaving(true);
     try {
       await onSubmit({
         title: title.trim(),
         description: description.trim() || null,
         event_date: eventDate,
+        end_date: period && endDate > eventDate ? endDate : eventDate,
         start_time: startTime || null,
         end_time: endTime || null,
         location: location.trim() || null,
