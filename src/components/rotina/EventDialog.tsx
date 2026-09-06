@@ -256,7 +256,7 @@ export function EventDialog({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={saving || !title.trim()}>
+            <Button type="submit" disabled={saving || !title.trim() || invalidPeriod}>
               {saving ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>
