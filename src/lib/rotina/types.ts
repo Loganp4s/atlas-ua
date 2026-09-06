@@ -20,7 +20,10 @@ export interface RotinaEvent {
   user_id: string;
   title: string;
   description: string | null;
+  /** Data inicial (compatível com eventos antigos de um único dia). */
   event_date: string;
+  /** Data final; null significa evento de um único dia. */
+  end_date: string | null;
   start_time: string | null;
   end_time: string | null;
   location: string | null;
