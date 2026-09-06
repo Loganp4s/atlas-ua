@@ -85,7 +85,10 @@ export async function listEvents(): Promise<RotinaEvent[]> {
 export interface EventInput {
   title: string;
   description?: string | null;
+  /** Data inicial. */
   event_date: string;
+  /** Data final; null/igual = evento de um único dia. */
+  end_date?: string | null;
   start_time?: string | null;
   end_time?: string | null;
   location?: string | null;
