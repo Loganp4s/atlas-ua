@@ -278,6 +278,16 @@ export function AgendaTab() {
                   {e.end_time ? ` – ${e.end_time.slice(0, 5)}` : ""}
                   {e.location ? ` · ${e.location}` : ""}
                 </p>
+                {periodLabel(e) ? (
+                  <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-foreground">
+                    {periodPosition(e, selected) === "start"
+                      ? "Começa hoje"
+                      : periodPosition(e, selected) === "end"
+                        ? "Último dia"
+                        : "Em andamento"}
+                    <span className="text-muted-foreground">{periodLabel(e)}</span>
+                  </p>
+                ) : null}
                 {e.description ? (
                   <p className="mt-1 text-xs text-muted-foreground/90">
                     {e.description}
