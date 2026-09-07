@@ -74,6 +74,19 @@ export function ObjectiveDetail({
     enabled: open && !!id,
   });
 
+  const { data: goals = [] } = useQuery({
+    queryKey: ["financeiro", "goals"],
+    queryFn: listGoals,
+    enabled: open && !!objective?.linked_goal_id,
+  });
+  const { data: habits = [] } = useQuery({
+    queryKey: ["rotina", "habits"],
+    queryFn: listHabits,
+    enabled: open && !!objective?.linked_habit_id,
+  });
+  const linkedGoal = goals.find((g) => g.id === objective?.linked_goal_id) ?? null;
+  const linkedHabit = habits.find((h) => h.id === objective?.linked_habit_id) ?? null;
+
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["objetivos"] });
   };
