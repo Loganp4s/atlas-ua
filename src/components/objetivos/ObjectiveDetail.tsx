@@ -45,6 +45,8 @@ import { ObjectiveProgress } from "./ObjectiveProgress";
 import { PriorityDots } from "./PriorityDots";
 import { StepsList } from "./StepsList";
 import { FocusMode } from "./FocusMode";
+import { listGoals } from "@/lib/financeiro/api";
+import { listHabits } from "@/lib/rotina/api";
 
 export function ObjectiveDetail({
   objective,
@@ -71,6 +73,19 @@ export function ObjectiveDetail({
     queryFn: () => listHistory(id),
     enabled: open && !!id,
   });
+
+  const { data: goals = [] } = useQuery({
+    queryKey: ["financeiro", "goals"],
+    queryFn: listGoals,
+    enabled: open && !!objective?.linked_goal_id,
+  });
+  const { data: habits = [] } = useQuery({
+    queryKey: ["rotina", "habits"],
+    queryFn: listHabits,
+    enabled: open && !!objective?.linked_habit_id,
+  });
+  const linkedGoal = goals.find((g) => g.id === objective?.linked_goal_id) ?? null;
+  const linkedHabit = habits.find((h) => h.id === objective?.linked_habit_id) ?? null;
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["objetivos"] });
@@ -259,6 +274,28 @@ export function ObjectiveDetail({
             </div>
           ) : null}
         </dl>
+
+        {linkedGoal || linkedHabit ? (
+          <div className="mt-6">
+            <h3 className="mb-2 font-display text-base font-medium text-foreground">
+              Conexões
+            </h3>
+            <ul className="space-y-2">
+              {linkedGoal ? (
+                <li className="rounded-xl border border-border bg-card px-3 py-2 text-xs">
+                  <span className="text-muted-foreground">Meta financeira · </span>
+                  <span className="text-foreground">{linkedGoal.name}</span>
+                </li>
+              ) : null}
+              {linkedHabit ? (
+                <li className="rounded-xl border border-border bg-card px-3 py-2 text-xs">
+                  <span className="text-muted-foreground">Hábito · </span>
+                  <span className="text-foreground">{linkedHabit.name}</span>
+                </li>
+              ) : null}
+            </ul>
+          </div>
+        ) : null}
 
         <div className="mt-6">
           <h3 className="mb-2 font-display text-base font-medium text-foreground">
