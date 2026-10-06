@@ -100,10 +100,10 @@ export function InsightsTab() {
           </span>
           <div>
             <p className="text-xs font-medium uppercase tracking-wider text-primary">
-              Atlas Intelligence
+              Análises financeiras
             </p>
             <p className="mt-1 text-sm text-foreground">
-              Análises simuladas com base nas suas movimentações. Em breve, insights personalizados por IA.
+              Análises objetivas calculadas localmente com base nas suas movimentações e contas.
             </p>
           </div>
         </div>
