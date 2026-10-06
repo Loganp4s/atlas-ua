@@ -52,14 +52,14 @@ export async function updateAccount(
   const { data, error } = await sb
     .from("fin_accounts")
     .update(patch)
-    .eq("id", id)
+    .eq("id", id).eq("user_id", await uid())
     .select()
     .single();
   if (error) throw error;
   return data as FinAccount;
 }
 export async function deleteAccount(id: string): Promise<void> {
-  const { error } = await sb.from("fin_accounts").delete().eq("id", id);
+  const { error } = await sb.from("fin_accounts").delete().eq("id", id).eq("user_id", await uid());
   if (error) throw error;
 }
 
@@ -103,14 +103,14 @@ export async function updateTransaction(
   const { data, error } = await sb
     .from("fin_transactions")
     .update(patch)
-    .eq("id", id)
+    .eq("id", id).eq("user_id", await uid())
     .select()
     .single();
   if (error) throw error;
   return data as FinTransaction;
 }
 export async function deleteTransaction(id: string): Promise<void> {
-  const { error } = await sb.from("fin_transactions").delete().eq("id", id);
+  const { error } = await sb.from("fin_transactions").delete().eq("id", id).eq("user_id", await uid());
   if (error) throw error;
 }
 
@@ -147,14 +147,14 @@ export async function updateGoal(
   const { data, error } = await sb
     .from("fin_goals")
     .update(patch)
-    .eq("id", id)
+    .eq("id", id).eq("user_id", await uid())
     .select()
     .single();
   if (error) throw error;
   return data as FinGoal;
 }
 export async function deleteGoal(id: string): Promise<void> {
-  const { error } = await sb.from("fin_goals").delete().eq("id", id);
+  const { error } = await sb.from("fin_goals").delete().eq("id", id).eq("user_id", await uid());
   if (error) throw error;
 }
 export async function listGoalContributions(
@@ -190,7 +190,7 @@ export async function addGoalContribution(
     .eq("id", goalId)
     .single();
   const next = Number(g?.current_amount ?? 0) + amount;
-  await sb.from("fin_goals").update({ current_amount: next }).eq("id", goalId);
+  await sb.from("fin_goals").update({ current_amount: next }).eq("id", goalId).eq("user_id", await uid());
 }
 
 /* -------- Bills -------- */
@@ -229,7 +229,7 @@ export async function updateBill(
   const { data, error } = await sb
     .from("fin_bills")
     .update(patch)
-    .eq("id", id)
+    .eq("id", id).eq("user_id", await uid())
     .select()
     .single();
   if (error) throw error;
@@ -243,7 +243,7 @@ export async function toggleBillPaid(bill: FinBill): Promise<FinBill> {
   });
 }
 export async function deleteBill(id: string): Promise<void> {
-  const { error } = await sb.from("fin_bills").delete().eq("id", id);
+  const { error } = await sb.from("fin_bills").delete().eq("id", id).eq("user_id", await uid());
   if (error) throw error;
 }
 
