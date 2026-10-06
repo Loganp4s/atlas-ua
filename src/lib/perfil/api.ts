@@ -169,7 +169,7 @@ export async function updateMemory(
   const { data, error } = await supabase
     .from("atlas_memories")
     .update(patch)
-    .eq("id", id)
+    .eq("id", id).eq("user_id", await requireUid())
     .select()
     .single();
   if (error) throw error;
@@ -177,7 +177,7 @@ export async function updateMemory(
 }
 
 export async function deleteMemory(id: string): Promise<void> {
-  const { error } = await supabase.from("atlas_memories").delete().eq("id", id);
+  const { error } = await supabase.from("atlas_memories").delete().eq("id", id).eq("user_id", await requireUid());
   if (error) throw error;
 }
 

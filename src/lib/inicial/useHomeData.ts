@@ -72,7 +72,12 @@ export function useHomeData(enabled: boolean) {
       events.isLoading ||
       habits.isLoading ||
       objectives.isLoading ||
-      accounts.isLoading,
+      habitLogs.isLoading ||
+      notes.isLoading ||
+      steps.isLoading ||
+      accounts.isLoading ||
+      transactions.isLoading ||
+      bills.isLoading,
   };
 }
 

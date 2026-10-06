@@ -8,6 +8,13 @@ import type {
   RotinaTask,
 } from "./types";
 
+async function requireUid(): Promise<string> {
+  const { data } = await supabase.auth.getUser();
+  const id = data.user?.id;
+  if (!id) throw new Error("Não autenticado");
+  return id;
+}
+
 /* ---------------------------- Tasks ---------------------------- */
 
 export async function listTasks(): Promise<RotinaTask[]> {
@@ -51,7 +58,7 @@ export async function updateTask(
   const { data, error } = await supabase
     .from("rotina_tasks")
     .update(patch)
-    .eq("id", id)
+    .eq("id", id).eq("user_id", await requireUid())
     .select()
     .single();
   if (error) throw error;
@@ -66,7 +73,7 @@ export async function toggleTaskDone(task: RotinaTask): Promise<RotinaTask> {
 }
 
 export async function deleteTask(id: string): Promise<void> {
-  const { error } = await supabase.from("rotina_tasks").delete().eq("id", id);
+  const { error } = await supabase.from("rotina_tasks").delete().eq("id", id).eq("user_id", await requireUid());
   if (error) throw error;
 }
 
@@ -132,7 +139,7 @@ export async function updateEvent(
   const { data, error } = await supabase
     .from("rotina_events")
     .update(normalizeEvent(patch))
-    .eq("id", id)
+    .eq("id", id).eq("user_id", await requireUid())
     .select()
     .single();
   if (error) throw error;
@@ -140,7 +147,7 @@ export async function updateEvent(
 }
 
 export async function deleteEvent(id: string): Promise<void> {
-  const { error } = await supabase.from("rotina_events").delete().eq("id", id);
+  const { error } = await supabase.from("rotina_events").delete().eq("id", id).eq("user_id", await requireUid());
   if (error) throw error;
 }
 
@@ -193,7 +200,7 @@ export async function updateHabit(
   const { data, error } = await supabase
     .from("rotina_habits")
     .update(patch)
-    .eq("id", id)
+    .eq("id", id).eq("user_id", await requireUid())
     .select()
     .single();
   if (error) throw error;
@@ -201,7 +208,7 @@ export async function updateHabit(
 }
 
 export async function deleteHabit(id: string): Promise<void> {
-  const { error } = await supabase.from("rotina_habits").delete().eq("id", id);
+  const { error } = await supabase.from("rotina_habits").delete().eq("id", id).eq("user_id", await requireUid());
   if (error) throw error;
 }
 
@@ -224,7 +231,8 @@ export async function unmarkHabit(habitId: string, date: string): Promise<void> 
     .from("rotina_habit_logs")
     .delete()
     .eq("habit_id", habitId)
-    .eq("log_date", date);
+    .eq("log_date", date)
+    .eq("user_id", await requireUid());
   if (error) throw error;
 }
 
@@ -267,7 +275,7 @@ export async function updateNote(
   const { data, error } = await supabase
     .from("rotina_notes")
     .update(patch)
-    .eq("id", id)
+    .eq("id", id).eq("user_id", await requireUid())
     .select()
     .single();
   if (error) throw error;
@@ -275,6 +283,6 @@ export async function updateNote(
 }
 
 export async function deleteNote(id: string): Promise<void> {
-  const { error } = await supabase.from("rotina_notes").delete().eq("id", id);
+  const { error } = await supabase.from("rotina_notes").delete().eq("id", id).eq("user_id", await requireUid());
   if (error) throw error;
 }

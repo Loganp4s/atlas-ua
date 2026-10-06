@@ -104,7 +104,7 @@ export async function updateObjective(
   const { data, error } = await supabase
     .from("obj_objectives")
     .update(patch as never)
-    .eq("id", id)
+    .eq("id", id).eq("user_id", await uid())
     .select()
     .single();
   if (error) throw error;
@@ -123,7 +123,7 @@ export async function editObjective(
 }
 
 export async function deleteObjective(id: string): Promise<void> {
-  const { error } = await supabase.from("obj_objectives").delete().eq("id", id);
+  const { error } = await supabase.from("obj_objectives").delete().eq("id", id).eq("user_id", await uid());
   if (error) throw error;
 }
 
@@ -196,7 +196,7 @@ export async function toggleStep(step: ObjStep): Promise<ObjStep> {
   const { data, error } = await supabase
     .from("obj_steps")
     .update({ done, done_at: done ? new Date().toISOString() : null })
-    .eq("id", step.id)
+    .eq("id", step.id).eq("user_id", await uid())
     .select()
     .single();
   if (error) throw error;
@@ -210,7 +210,7 @@ export async function toggleStep(step: ObjStep): Promise<ObjStep> {
 }
 
 export async function deleteStep(id: string): Promise<void> {
-  const { error } = await supabase.from("obj_steps").delete().eq("id", id);
+  const { error } = await supabase.from("obj_steps").delete().eq("id", id).eq("user_id", await uid());
   if (error) throw error;
 }
 
