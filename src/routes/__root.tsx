@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { GlobalAppearance } from "@/components/perfil/GlobalAppearance";
 
 function NotFoundComponent() {
   return (
@@ -119,10 +120,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+// Aplica a aparência salva antes da primeira pintura, evitando o "flash" do tema claro.
+const APPEARANCE_BOOT = `(function(){try{var s=JSON.parse(localStorage.getItem("atlas.appearance")||"null");if(!s)return;var r=document.documentElement;var d=s.theme==="dark"||(s.theme==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(d)r.classList.add("dark");if(s.animations===false)r.classList.add("no-animations");if(s.density)r.dataset.density=s.density;}catch(e){}})();`;
+
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: APPEARANCE_BOOT }} />
         <HeadContent />
       </head>
       <body>
@@ -138,6 +143,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <GlobalAppearance />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster />
