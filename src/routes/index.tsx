@@ -139,11 +139,22 @@ function HomeSignedIn({ userId }: { userId: string }) {
 
       <AtlasPresence />
 
-      <DaySection items={items} />
+      {data.loading ? (
+        <div className="mb-9 flex flex-col gap-3" aria-busy="true" aria-label="Carregando seu dia">
+          <div className="h-4 w-24 animate-pulse rounded-full bg-secondary" />
+          <div className="h-20 w-full animate-pulse rounded-2xl bg-secondary" />
+          <div className="h-20 w-full animate-pulse rounded-2xl bg-secondary" />
+          <div className="h-28 w-full animate-pulse rounded-2xl bg-secondary" />
+        </div>
+      ) : (
+        <>
+          <DaySection items={items} />
 
-      {suggestion ? <PossibilitySection possibility={suggestion} /> : null}
+          {suggestion ? <PossibilitySection possibility={suggestion} /> : null}
 
-      <WorldCarousel cards={cards} />
+          <WorldCarousel cards={cards} />
+        </>
+      )}
 
       <ChallengeCard userId={userId} />
 
