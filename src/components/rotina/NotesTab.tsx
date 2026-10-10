@@ -29,10 +29,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { NoteDialog } from "./NoteDialog";
+import { confirmDelete, LoadError } from "@/components/atlas/ConfirmHost";
 
 export function NotesTab() {
   const qc = useQueryClient();
-  const { data: notes = [], isLoading } = useQuery({
+  const { data: notes = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["rotina", "notes"],
     queryFn: listNotes,
   });
@@ -116,7 +117,9 @@ export function NotesTab() {
         </Button>
       </div>
 
-      {isLoading ? (
+      {isError ? (
+        <LoadError onRetry={() => refetch()} />
+      ) : isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : filtered.length === 0 ? (
         <EmptyState
@@ -183,7 +186,7 @@ export function NotesTab() {
                     <Pencil className="h-4 w-4" /> Editar
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => deleteMut.mutate(n.id)}
+                    onClick={async () => { if (await confirmDelete("Excluir nota?")) deleteMut.mutate(n.id); }}
                     className="text-destructive focus:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" /> Excluir

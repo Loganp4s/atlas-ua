@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { BillDialog } from "./BillDialog";
+import { confirmDelete, LoadError } from "@/components/atlas/ConfirmHost";
 
 function monthKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -38,7 +39,7 @@ function monthKey(d: Date) {
 
 export function ContasTab() {
   const qc = useQueryClient();
-  const { data: bills = [], isLoading } = useQuery({
+  const { data: bills = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["fin", "bills"],
     queryFn: listBills,
   });
@@ -166,7 +167,9 @@ export function ContasTab() {
         </Button>
       </div>
 
-      {isLoading ? (
+      {isError ? (
+        <LoadError onRetry={() => refetch()} />
+      ) : isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : monthBills.length === 0 ? (
         <EmptyState
@@ -239,7 +242,7 @@ export function ContasTab() {
                     <Pencil className="h-4 w-4" /> Editar
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => deleteMut.mutate(b.id)}
+                    onClick={async () => { if (await confirmDelete("Excluir conta?")) deleteMut.mutate(b.id); }}
                     className="text-destructive focus:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" /> Excluir

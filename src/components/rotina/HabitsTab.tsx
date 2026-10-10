@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { HabitDialog } from "./HabitDialog";
+import { confirmDelete, LoadError } from "@/components/atlas/ConfirmHost";
 
 const DAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
@@ -40,7 +41,7 @@ function formatDays(days: number[]): string {
 
 export function HabitsTab() {
   const qc = useQueryClient();
-  const { data: habits = [], isLoading } = useQuery({
+  const { data: habits = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["rotina", "habits"],
     queryFn: listHabits,
   });
@@ -125,7 +126,9 @@ export function HabitsTab() {
         </Button>
       </div>
 
-      {isLoading ? (
+      {isError ? (
+        <LoadError onRetry={() => refetch()} />
+      ) : isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : habits.length === 0 ? (
         <EmptyState
@@ -191,7 +194,7 @@ export function HabitsTab() {
                       <Pencil className="h-4 w-4" /> Editar
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onClick={() => deleteMut.mutate(h.id)}
+                      onClick={async () => { if (await confirmDelete("Excluir hábito?")) deleteMut.mutate(h.id); }}
                       className="text-destructive focus:text-destructive"
                     >
                       <Trash2 className="h-4 w-4" /> Excluir

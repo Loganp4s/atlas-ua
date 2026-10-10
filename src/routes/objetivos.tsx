@@ -19,6 +19,7 @@ import {
 } from "@/lib/objetivos/api";
 import { computeProgress } from "@/lib/objetivos/meta";
 import type { ObjObjective } from "@/lib/objetivos/types";
+import { confirmDelete, LoadError } from "@/components/atlas/ConfirmHost";
 
 export const Route = createFileRoute("/objetivos")({
   head: () => ({
@@ -73,7 +74,7 @@ function ObjetivosContent() {
   const [editing, setEditing] = useState<ObjObjective | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const { data: objectives = [], isLoading } = useQuery({
+  const { data: objectives = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["objetivos", "list"],
     queryFn: listObjectives,
   });
@@ -153,7 +154,9 @@ function ObjetivosContent() {
         nextDeadline={summary.nextDeadline}
       />
 
-      {isLoading ? (
+      {isError ? (
+        <LoadError onRetry={() => refetch()} />
+      ) : isLoading ? (
         <div className="flex min-h-[20vh] items-center justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
