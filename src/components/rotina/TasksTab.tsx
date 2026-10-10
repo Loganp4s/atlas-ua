@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TaskDialog } from "./TaskDialog";
+import { confirmDelete, LoadError } from "@/components/atlas/ConfirmHost";
 
 const PRIORITY_STYLES: Record<string, string> = {
   baixa: "bg-secondary text-muted-foreground",
@@ -46,7 +47,7 @@ function formatDue(task: RotinaTask): string | null {
 
 export function TasksTab() {
   const qc = useQueryClient();
-  const { data: tasks = [], isLoading } = useQuery({
+  const { data: tasks = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["rotina", "tasks"],
     queryFn: listTasks,
   });
@@ -117,7 +118,9 @@ export function TasksTab() {
         </Button>
       </div>
 
-      {isLoading ? (
+      {isError ? (
+        <LoadError onRetry={() => refetch()} />
+      ) : isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : tasks.length === 0 ? (
         <EmptyState
@@ -191,7 +194,7 @@ export function TasksTab() {
                     <Pencil className="h-4 w-4" /> Editar
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => deleteMut.mutate(task.id)}
+                    onClick={async () => { if (await confirmDelete("Excluir tarefa?")) deleteMut.mutate(task.id); }}
                     className="text-destructive focus:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" /> Excluir

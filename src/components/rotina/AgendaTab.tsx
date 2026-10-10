@@ -29,6 +29,7 @@ import {
 import { EventDialog } from "./EventDialog";
 import { todayYmd } from "@/lib/rotina/streak";
 import { datesCovered, periodLabel, periodPosition } from "@/lib/rotina/events";
+import { confirmDelete, LoadError } from "@/components/atlas/ConfirmHost";
 
 const MONTHS = [
   "Janeiro",
@@ -308,7 +309,7 @@ export function AgendaTab() {
                     <Pencil className="h-4 w-4" /> Editar
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => deleteMut.mutate(e.id)}
+                    onClick={async () => { if (await confirmDelete("Excluir compromisso?")) deleteMut.mutate(e.id); }}
                     className="text-destructive focus:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" /> Excluir

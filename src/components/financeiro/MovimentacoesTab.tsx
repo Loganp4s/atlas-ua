@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { TransactionDialog } from "./TransactionDialog";
 import { AccountDialog } from "./AccountDialog";
+import { confirmDelete, LoadError } from "@/components/atlas/ConfirmHost";
 
 type Filter = "all" | FinTxType;
 
@@ -172,7 +173,9 @@ export function MovimentacoesTab() {
         })}
       </div>
 
-      {txQ.isLoading ? (
+      {txQ.isError ? (
+        <LoadError onRetry={() => txQ.refetch()} />
+      ) : txQ.isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : filtered.length === 0 ? (
         <EmptyState
@@ -243,7 +246,7 @@ export function MovimentacoesTab() {
                       <Pencil className="h-4 w-4" /> Editar
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onClick={() => deleteMut.mutate(t.id)}
+                      onClick={async () => { if (await confirmDelete("Excluir movimentação?")) deleteMut.mutate(t.id); }}
                       className="text-destructive focus:text-destructive"
                     >
                       <Trash2 className="h-4 w-4" /> Excluir

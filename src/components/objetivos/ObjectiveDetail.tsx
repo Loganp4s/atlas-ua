@@ -47,6 +47,7 @@ import { StepsList } from "./StepsList";
 import { FocusMode } from "./FocusMode";
 import { listGoals } from "@/lib/financeiro/api";
 import { listHabits } from "@/lib/rotina/api";
+import { confirmDelete, LoadError } from "@/components/atlas/ConfirmHost";
 
 export function ObjectiveDetail({
   objective,
@@ -371,7 +372,7 @@ export function ObjectiveDetail({
           <Button
             type="button"
             variant="outline"
-            onClick={() => remove.mutate()}
+            onClick={async () => { if (await confirmDelete("Excluir objetivo?")) remove.mutate(); }}
             className="text-destructive"
           >
             <Trash2 className="h-4 w-4" /> Excluir

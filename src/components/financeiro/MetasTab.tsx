@@ -22,10 +22,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { GoalDialog } from "./GoalDialog";
+import { confirmDelete, LoadError } from "@/components/atlas/ConfirmHost";
 
 export function MetasTab() {
   const qc = useQueryClient();
-  const { data: goals = [], isLoading } = useQuery({
+  const { data: goals = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["fin", "goals"],
     queryFn: listGoals,
   });
@@ -93,7 +94,9 @@ export function MetasTab() {
         </Button>
       </div>
 
-      {isLoading ? (
+      {isError ? (
+        <LoadError onRetry={() => refetch()} />
+      ) : isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : goals.length === 0 ? (
         <EmptyState
@@ -144,7 +147,7 @@ export function MetasTab() {
                         <Pencil className="h-4 w-4" /> Editar
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => deleteMut.mutate(g.id)}
+                        onClick={async () => { if (await confirmDelete("Excluir meta?")) deleteMut.mutate(g.id); }}
                         className="text-destructive focus:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" /> Excluir
