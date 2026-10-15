@@ -64,12 +64,12 @@ export function ObjectiveDetail({
   const [focus, setFocus] = useState(false);
   const id = objective?.id ?? "";
 
-  const { data: steps = [] } = useQuery({
+  const { data: steps = [], isLoading: stepsLoading, isError: stepsError, refetch: refetchSteps } = useQuery({
     queryKey: ["objetivos", "steps", id],
     queryFn: () => listSteps(id),
     enabled: open && !!id,
   });
-  const { data: history = [] } = useQuery({
+  const { data: history = [], isLoading: historyLoading, isError: historyError, refetch: refetchHistory } = useQuery({
     queryKey: ["objetivos", "history", id],
     queryFn: () => listHistory(id),
     enabled: open && !!id,
@@ -302,12 +302,18 @@ export function ObjectiveDetail({
           <h3 className="mb-2 font-display text-base font-medium text-foreground">
             Etapas
           </h3>
-          <StepsList
-            steps={steps}
-            onAdd={(title, due) => addStep.mutateAsync({ title, due })}
-            onToggle={(s) => toggle.mutate(s)}
-            onDelete={(s) => removeStep.mutate(s)}
-          />
+          {stepsError ? (
+            <LoadError onRetry={() => refetchSteps()} />
+          ) : stepsLoading ? (
+            <p className="text-sm text-muted-foreground">Carregando etapas...</p>
+          ) : (
+            <StepsList
+              steps={steps}
+              onAdd={(title, due) => addStep.mutateAsync({ title, due })}
+              onToggle={(s) => toggle.mutate(s)}
+              onDelete={async (s) => { if (await confirmDelete("Excluir etapa?")) removeStep.mutate(s); }}
+            />
+          )}
         </div>
 
         {objective.notes ? (
@@ -346,7 +352,11 @@ export function ObjectiveDetail({
           <h3 className="mb-2 flex items-center gap-1.5 font-display text-base font-medium text-foreground">
             <History className="h-4 w-4" strokeWidth={1.75} /> Histórico
           </h3>
-          {history.length === 0 ? (
+          {historyError ? (
+            <LoadError onRetry={() => refetchHistory()} />
+          ) : historyLoading ? (
+            <p className="text-sm text-muted-foreground">Carregando histórico...</p>
+          ) : history.length === 0 ? (
             <p className="text-sm text-muted-foreground">Sem registros ainda.</p>
           ) : (
             <ol className="flex flex-col gap-2">
