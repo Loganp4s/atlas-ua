@@ -94,7 +94,7 @@ export function AgendaTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<RotinaEvent | null>(null);
 
-  const { data: events = [] } = useQuery({
+  const { data: events = [], isError: eventsError, refetch: refetchEvents } = useQuery({
     queryKey: ["rotina", "events"],
     queryFn: listEvents,
   });
@@ -173,6 +173,8 @@ export function AgendaTab() {
 
   const selectedEvents = eventsByDate.get(selected) ?? [];
   const todayStr = todayYmd();
+
+  if (eventsError) return <LoadError onRetry={() => refetchEvents()} />;
 
   return (
     <div className="flex flex-col gap-4">

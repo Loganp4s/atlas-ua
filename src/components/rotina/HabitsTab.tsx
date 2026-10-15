@@ -45,7 +45,7 @@ export function HabitsTab() {
     queryKey: ["rotina", "habits"],
     queryFn: listHabits,
   });
-  const { data: logs = [] } = useQuery({
+  const { data: logs = [], isLoading: logsLoading, isError: logsError, refetch: refetchLogs } = useQuery({
     queryKey: ["rotina", "habit-logs"],
     queryFn: listHabitLogs,
   });
@@ -128,7 +128,9 @@ export function HabitsTab() {
 
       {isError ? (
         <LoadError onRetry={() => refetch()} />
-      ) : isLoading ? (
+      ) : logsError ? (
+        <LoadError onRetry={() => refetchLogs()} />
+      ) : isLoading || logsLoading ? (
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : habits.length === 0 ? (
         <EmptyState
