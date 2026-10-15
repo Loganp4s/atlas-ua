@@ -1,3 +1,4 @@
+import { LoadError } from "@/components/atlas/ConfirmHost";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Sparkles, TrendingDown, TrendingUp } from "lucide-react";
@@ -90,6 +91,9 @@ export function InsightsTab() {
 
     return out;
   }, [txQ.data, billsQ.data]);
+
+  if (txQ.isError || billsQ.isError) return <LoadError onRetry={() => { void txQ.refetch(); void billsQ.refetch(); }} />;
+  if (txQ.isLoading || billsQ.isLoading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
 
   return (
     <div className="flex flex-col gap-3">

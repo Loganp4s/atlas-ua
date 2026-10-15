@@ -1,3 +1,4 @@
+import { LoadError } from "@/components/atlas/ConfirmHost";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownRight, ArrowUpRight, PiggyBank, Sparkles, Wallet } from "lucide-react";
@@ -42,6 +43,9 @@ export function ResumoTab() {
     .filter((b) => b.status === "pendente" && b.due_date >= today)
     .slice(0, 3);
   const recentTx = tx.slice(0, 5);
+
+  if (accountsQ.isError || txQ.isError || billsQ.isError) return <LoadError onRetry={() => { void accountsQ.refetch(); void txQ.refetch(); void billsQ.refetch(); }} />;
+  if (accountsQ.isLoading || txQ.isLoading || billsQ.isLoading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
 
   return (
     <div className="flex flex-col gap-4">

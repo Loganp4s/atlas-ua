@@ -1,3 +1,4 @@
+import { LoadError } from "@/components/atlas/ConfirmHost";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -23,7 +24,7 @@ import { LineChart as LineIcon } from "lucide-react";
 const COLORS = ["#0EA5E9", "#8B5CF6", "#F97316", "#10B981", "#F43F5E", "#EAB308", "#64748B"];
 
 export function RelatoriosTab() {
-  const { data: tx = [], isLoading } = useQuery({
+  const { data: tx = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["fin", "tx"],
     queryFn: listTransactions,
   });
@@ -59,6 +60,7 @@ export function RelatoriosTab() {
     return { byCategory, monthly, cashflow };
   }, [tx]);
 
+  if (isError) return <LoadError onRetry={() => refetch()} />;
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
   if (tx.length === 0)
     return (
