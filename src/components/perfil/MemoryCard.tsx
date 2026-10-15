@@ -1,3 +1,4 @@
+import { LoadError } from "@/components/atlas/ConfirmHost";
 import { useState } from "react";
 import { Brain, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -166,6 +167,8 @@ export function MemoryCard({
                 <Skeleton className="h-20 w-full rounded-2xl" />
                 <Skeleton className="h-20 w-full rounded-2xl" />
               </div>
+            ) : memoriesQuery.isError ? (
+              <LoadError onRetry={() => memoriesQuery.refetch()} />
             ) : memories.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
                 Nenhuma informação salva ainda.
