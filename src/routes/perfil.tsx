@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell, PageHeader } from "@/components/atlas/AppShell";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LoadError } from "@/components/atlas/ConfirmHost";
 import { useAuthUser } from "@/components/rotina/useAuthUser";
 import { PerfilAuth } from "@/components/perfil/PerfilAuth";
 import { UserCard } from "@/components/perfil/UserCard";
@@ -169,6 +170,8 @@ function PerfilPage() {
                 onChange={(patch) => prefsMutation.mutate(patch)}
               />
             </>
+          ) : prefsQuery.isError ? (
+            <LoadError onRetry={() => prefsQuery.refetch()} />
           ) : null}
 
           <PrivacyCard email={email} />

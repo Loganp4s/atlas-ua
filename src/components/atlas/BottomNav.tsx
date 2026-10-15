@@ -31,6 +31,7 @@ export function BottomNav() {
             <li key={to} className="flex-1">
               <Link
                 to={to}
+                aria-current={active ? "page" : undefined}
                 className="group flex flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-medium transition-colors"
               >
                 <Icon
