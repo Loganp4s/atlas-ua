@@ -103,7 +103,7 @@ export function MovimentacoesTab() {
   });
 
   function openCreate() {
-    if (accounts.length === 0) {
+    if (accounts.filter((a) => !a.archived).length === 0) {
       toast.info("Crie uma conta primeiro");
       setAccountOpen(true);
       return;
@@ -263,7 +263,9 @@ export function MovimentacoesTab() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         initial={editing}
-        accounts={accounts}
+        accounts={accounts.filter(
+          (a) => !a.archived || a.id === editing?.account_id,
+        )}
         onSubmit={handleSubmit}
       />
       <AccountDialog

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/atlas/AppShell";
 import { useAuthUser } from "@/components/rotina/useAuthUser";
@@ -50,6 +50,29 @@ const TABS: { id: Tab; label: string }[] = [
 function FinanceiroPage() {
   const auth = useAuthUser();
   const [tab, setTab] = useState<Tab>("resumo");
+  const scrollerRef = useRef<HTMLDivElement>(null);
+
+  // Mantém a aba ativa visível ao trocar de aba ou redimensionar a tela.
+  useEffect(() => {
+    const reveal = (smooth: boolean) => {
+      const el = scrollerRef.current;
+      const btn = el?.querySelector<HTMLElement>(`[data-tab="${tab}"]`);
+      if (!el || !btn) return;
+      const pad = 20;
+      const left = btn.offsetLeft - el.offsetLeft;
+      const right = left + btn.offsetWidth;
+      let target = el.scrollLeft;
+      if (left - pad < el.scrollLeft) target = left - pad;
+      else if (right + pad > el.scrollLeft + el.clientWidth)
+        target = right + pad - el.clientWidth;
+      if (target !== el.scrollLeft)
+        el.scrollTo({ left: Math.max(0, target), behavior: smooth ? "smooth" : "auto" });
+    };
+    reveal(true);
+    const onResize = () => reveal(false);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [tab, auth.status]);
 
   if (auth.status === "loading") {
     return (
@@ -77,17 +100,28 @@ function FinanceiroPage() {
         description="Uma visão tranquila do seu dinheiro."
       />
 
-      <div className="-mx-5 mb-5 overflow-x-auto px-5">
-        <div className="flex gap-1 rounded-full border border-border bg-card p-1">
+      <div
+        ref={scrollerRef}
+        className="-mx-5 mb-5 overflow-x-auto overscroll-x-contain px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
+        <div
+          role="tablist"
+          aria-label="Seções de Finanças"
+          className="flex w-max gap-1 rounded-full border border-border bg-card p-1"
+        >
           {TABS.map((t) => {
             const active = tab === t.id;
             return (
               <button
                 key={t.id}
                 type="button"
+                role="tab"
+                aria-selected={active}
+                data-tab={t.id}
                 onClick={() => setTab(t.id)}
                 className={
-                  "shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors " +
+                  "shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors " +
                   (active
                     ? "bg-foreground text-background"
                     : "text-muted-foreground hover:text-foreground")
