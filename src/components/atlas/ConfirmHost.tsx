@@ -13,6 +13,7 @@ import {
 interface Pending {
   title: string;
   description: string;
+  confirmLabel: string;
   resolve: (ok: boolean) => void;
 }
 
@@ -24,10 +25,11 @@ const emit = () => listeners.forEach((l) => l());
 export function confirmDelete(
   title = "Excluir este item?",
   description = "Essa ação não pode ser desfeita.",
+  confirmLabel = "Excluir",
 ): Promise<boolean> {
   pending?.resolve(false);
   return new Promise((resolve) => {
-    pending = { title, description, resolve };
+    pending = { title, description, confirmLabel, resolve };
     emit();
   });
 }
@@ -60,7 +62,7 @@ export function ConfirmHost() {
             onClick={() => close(true)}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            Excluir
+            {current?.confirmLabel ?? "Excluir"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

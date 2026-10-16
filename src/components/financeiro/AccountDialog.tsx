@@ -65,7 +65,7 @@ export function AccountDialog({
         type,
         initial_balance: Number(balance) || 0,
         color,
-        icon: "wallet",
+        icon: initial?.icon ?? "wallet",
       });
       onOpenChange(false);
     } finally {

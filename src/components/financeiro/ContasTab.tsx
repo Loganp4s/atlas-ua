@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { BillDialog } from "./BillDialog";
 import { confirmDelete, LoadError } from "@/components/atlas/ConfirmHost";
+import { AccountsSection } from "./AccountsSection";
 
 function monthKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -103,6 +104,10 @@ export function ContasTab() {
 
   return (
     <div className="flex flex-col gap-3">
+      <AccountsSection />
+      <p className="mt-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        Contas a pagar
+      </p>
       <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-card px-3 py-2">
         <button
           type="button"
