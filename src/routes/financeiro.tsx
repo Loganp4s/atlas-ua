@@ -59,8 +59,10 @@ function FinanceiroPage() {
       const btn = el?.querySelector<HTMLElement>(`[data-tab="${tab}"]`);
       if (!el || !btn) return;
       const pad = 20;
-      const left = btn.offsetLeft - el.offsetLeft;
-      const right = left + btn.offsetWidth;
+      const r = btn.getBoundingClientRect();
+      const c = el.getBoundingClientRect();
+      const left = r.left - c.left + el.scrollLeft;
+      const right = left + r.width;
       let target = el.scrollLeft;
       if (left - pad < el.scrollLeft) target = left - pad;
       else if (right + pad > el.scrollLeft + el.clientWidth)
