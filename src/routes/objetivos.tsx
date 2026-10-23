@@ -10,6 +10,7 @@ import { ObjectivesSummary } from "@/components/objetivos/ObjectivesSummary";
 import { ObjectiveCard } from "@/components/objetivos/ObjectiveCard";
 import { ObjectiveDialog } from "@/components/objetivos/ObjectiveDialog";
 import { ObjectiveDetail } from "@/components/objetivos/ObjectiveDetail";
+import { FinancialGoalSuggestion } from "@/components/objetivos/FinancialGoalSuggestion";
 import {
   createObjective,
   editObjective,
@@ -25,6 +26,8 @@ export const Route = createFileRoute("/objetivos")({
   head: () => ({
     meta: [
       { title: "Objetivos — Atlas" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       {
         name: "description",
         content:
@@ -73,12 +76,13 @@ function ObjetivosContent() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ObjObjective | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [suggestion, setSuggestion] = useState<ObjObjective | null>(null);
 
   const { data: objectives = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["objetivos", "list"],
     queryFn: listObjectives,
   });
-  const { data: allSteps = [] } = useQuery({
+  const { data: allSteps = [], isLoading: stepsLoading, isError: stepsError, refetch: refetchSteps } = useQuery({
     queryKey: ["objetivos", "steps", "all"],
     queryFn: listAllSteps,
   });
@@ -116,7 +120,8 @@ function ObjetivosContent() {
 
   const createMut = useMutation({
     mutationFn: (input: ObjectiveInput) => createObjective(input),
-    onSuccess: () => {
+    onSuccess: (objective) => {
+      setSuggestion(objective);
       toast.success("Objetivo criado");
       invalidate();
     },
@@ -147,16 +152,18 @@ function ObjetivosContent() {
         description="Transforme sonhos em planos."
       />
 
-      <ObjectivesSummary
+      {suggestion ? <FinancialGoalSuggestion key={suggestion.id} objective={objectives.find((o) => o.id === suggestion.id) ?? suggestion} onDismiss={() => setSuggestion(null)} /> : null}
+
+      {!isLoading && !stepsLoading && !isError && !stepsError ? <ObjectivesSummary
         active={summary.active}
         done={summary.done}
         overall={summary.overall}
         nextDeadline={summary.nextDeadline}
-      />
+      /> : null}
 
-      {isError ? (
-        <LoadError onRetry={() => refetch()} />
-      ) : isLoading ? (
+      {isError || stepsError ? (
+        <LoadError onRetry={() => { void refetch(); void refetchSteps(); }} />
+      ) : isLoading || stepsLoading ? (
         <div className="flex min-h-[20vh] items-center justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>

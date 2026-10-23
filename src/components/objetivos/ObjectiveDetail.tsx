@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Focus, History, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -34,7 +34,7 @@ import {
   categoryMeta,
   clampProgress,
   computeProgress,
-  derivedStatus,
+  statusAfterProgress,
   priorityMeta,
   remainingLabel,
   statusLabel,
@@ -62,6 +62,8 @@ export function ObjectiveDetail({
 }) {
   const qc = useQueryClient();
   const [focus, setFocus] = useState(false);
+  const [manualDraft, setManualDraft] = useState(0);
+  useEffect(() => { setManualDraft(objective?.manual_progress ?? 0); }, [objective?.id, objective?.manual_progress]);
   const id = objective?.id ?? "";
 
   const { data: steps = [], isLoading: stepsLoading, isError: stepsError, refetch: refetchSteps } = useQuery({
@@ -76,7 +78,7 @@ export function ObjectiveDetail({
   });
 
   const { data: goals = [] } = useQuery({
-    queryKey: ["financeiro", "goals"],
+    queryKey: ["fin", "goals"],
     queryFn: listGoals,
     enabled: open && !!objective?.linked_goal_id,
   });
@@ -88,9 +90,7 @@ export function ObjectiveDetail({
   const linkedGoal = goals.find((g) => g.id === objective?.linked_goal_id) ?? null;
   const linkedHabit = habits.find((h) => h.id === objective?.linked_habit_id) ?? null;
 
-  const refresh = () => {
-    qc.invalidateQueries({ queryKey: ["objetivos"] });
-  };
+  const refresh = () => qc.invalidateQueries({ queryKey: ["objetivos"] });
 
   const addStep = useMutation({
     mutationFn: ({ title, due }: { title: string; due: string | null }) =>
@@ -99,31 +99,24 @@ export function ObjectiveDetail({
   });
   const toggle = useMutation({
     mutationFn: (step: ObjStep) => toggleStep(step),
-    onSuccess: async (_r, step) => {
-      const nextSteps = steps.map((s) =>
-        s.id === step.id ? { ...s, done: !s.done } : s,
-      );
-      const progress = computeProgress(objective?.manual_progress ?? 0, nextSteps);
-      if (objective) {
-        const status = derivedStatus(progress, objective.status);
-        if (status !== objective.status) await setObjectiveStatus(id, status, objective.name);
-      }
-      refresh();
-    },
+    onSuccess: refresh,
+    onSettled: refresh,
     onError: (e: Error) => toast.error(e.message),
   });
   const removeStep = useMutation({
     mutationFn: (step: ObjStep) => deleteStep(step.id),
     onSuccess: refresh,
+    onSettled: refresh,
+    onError: (e: Error) => toast.error(e.message),
   });
   const manual = useMutation({
     mutationFn: (value: number) =>
       updateObjective(id, {
         manual_progress: clampProgress(value),
-        status: derivedStatus(clampProgress(value), objective?.status ?? "nao_iniciado"),
+        status: statusAfterProgress(objective?.manual_progress ?? 0, clampProgress(value), objective?.status ?? "nao_iniciado"),
       }),
     onSuccess: refresh,
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => { setManualDraft(objective?.manual_progress ?? 0); toast.error(e.message); },
   });
   const status = useMutation({
     mutationFn: (s: ObjStatus) => setObjectiveStatus(id, s, objective?.name),
@@ -204,7 +197,8 @@ export function ObjectiveDetail({
         ) : null}
 
         <div className="mt-5">
-          <ObjectiveProgress value={progress} size="lg" label="Progresso" />
+          {stepsError ? <LoadError onRetry={() => refetchSteps()} /> : stepsLoading ? <p className="text-sm text-muted-foreground">Carregando progresso...</p> : <>
+          <ObjectiveProgress value={steps.length ? progress : manualDraft} size="lg" label="Progresso" />
           {steps.length > 0 ? (
             <p className="mt-1.5 text-[11px] text-muted-foreground">
               Calculado automaticamente por etapas ({steps.filter((s) => s.done).length}/
@@ -218,14 +212,17 @@ export function ObjectiveDetail({
               <Slider
                 id="manual-progress"
                 className="mt-3"
-                value={[objective.manual_progress]}
+                value={[manualDraft]}
+                disabled={manual.isPending}
                 min={0}
                 max={100}
                 step={5}
-                onValueChange={(v) => manual.mutate(v[0] ?? 0)}
+                onValueChange={(v) => setManualDraft(v[0] ?? 0)}
+                onValueCommit={(v) => manual.mutate(v[0] ?? 0)}
               />
             </div>
           )}
+          </>}
         </div>
 
         <dl className="mt-5 grid grid-cols-2 gap-3 text-xs">
@@ -309,6 +306,7 @@ export function ObjectiveDetail({
           ) : (
             <StepsList
               steps={steps}
+              disabled={toggle.isPending || removeStep.isPending || addStep.isPending}
               onAdd={(title, due) => addStep.mutateAsync({ title, due })}
               onToggle={(s) => toggle.mutate(s)}
               onDelete={async (s) => { if (await confirmDelete("Excluir etapa?")) removeStep.mutate(s); }}
@@ -373,7 +371,7 @@ export function ObjectiveDetail({
         </div>
 
         <div className="mt-7 flex flex-wrap gap-2">
-          <Button type="button" onClick={() => setFocus(true)} className="flex-1">
+          <Button type="button" disabled={stepsLoading || stepsError || toggle.isPending} onClick={() => setFocus(true)} className="flex-1">
             <Focus className="h-4 w-4" /> Entrar em modo foco
           </Button>
           <Button type="button" variant="outline" onClick={() => onEdit(objective)}>
