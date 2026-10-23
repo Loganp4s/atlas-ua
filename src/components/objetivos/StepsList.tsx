@@ -14,12 +14,14 @@ export function StepsList({
   onToggle,
   onDelete,
   compact = false,
+  disabled = false,
 }: {
   steps: ObjStep[];
   onAdd?: (title: string, dueDate: string | null) => Promise<unknown>;
   onToggle: (step: ObjStep) => void;
   onDelete?: (step: ObjStep) => void;
   compact?: boolean;
+  disabled?: boolean;
 }) {
   const [title, setTitle] = useState("");
   const [due, setDue] = useState("");
@@ -60,6 +62,7 @@ export function StepsList({
               <Checkbox
                 id={`step-${s.id}`}
                 checked={s.done}
+                disabled={disabled}
                 onCheckedChange={() => onToggle(s)}
                 aria-label={`Concluir etapa ${s.title}`}
               />
@@ -80,14 +83,17 @@ export function StepsList({
                 ) : null}
               </label>
               {onDelete ? (
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={disabled}
                   type="button"
                   onClick={() => onDelete(s)}
                   aria-label={`Remover etapa ${s.title}`}
                   className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-                </button>
+                </Button>
               ) : null}
             </li>
           ))}
@@ -119,7 +125,7 @@ export function StepsList({
                 onChange={(e) => setDue(e.target.value)}
               />
             </div>
-            <Button type="submit" disabled={busy || !title.trim()}>
+            <Button type="submit" disabled={disabled || busy || !title.trim()}>
               <Plus className="h-4 w-4" /> Adicionar
             </Button>
           </div>

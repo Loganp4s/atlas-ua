@@ -73,7 +73,7 @@ export function ObjectiveDialog({ open, onOpenChange, initial, onSubmit }: Props
   }, [open, initial]);
 
   const { data: goals = [] } = useQuery({
-    queryKey: ["financeiro", "goals"],
+    queryKey: ["fin", "goals"],
     queryFn: listGoals,
     enabled: open,
   });

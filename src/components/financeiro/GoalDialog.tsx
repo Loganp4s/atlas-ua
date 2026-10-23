@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -24,11 +25,13 @@ export function GoalDialog({
   open,
   onOpenChange,
   initial,
+  defaults,
   onSubmit,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   initial?: FinGoal | null;
+  defaults?: Partial<GoalInput>;
   onSubmit: (input: GoalInput) => Promise<void>;
 }) {
   const [name, setName] = useState("");
@@ -40,17 +43,17 @@ export function GoalDialog({
 
   useEffect(() => {
     if (open) {
-      setName(initial?.name ?? "");
-      setTarget(initial ? String(initial.target_amount) : "");
+      setName(initial?.name ?? defaults?.name ?? "");
+      setTarget(initial ? String(initial.target_amount) : defaults?.target_amount != null ? String(defaults.target_amount) : "");
       setCurrent(initial ? String(initial.current_amount) : "0");
-      setDeadline(isoToDate(initial?.deadline ?? undefined));
+      setDeadline(isoToDate(initial?.deadline ?? defaults?.deadline ?? undefined));
       setColor(initial?.color ?? COLORS[0]);
     }
-  }, [open, initial]);
+  }, [open, initial, defaults?.name, defaults?.target_amount, defaults?.deadline]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !Number(target)) return;
+    if (!name.trim() || !Number.isFinite(Number(target)) || Number(target) <= 0 || !Number.isFinite(Number(current)) || Number(current) < 0) { toast.error("Informe um valor-alvo positivo e um valor atual válido."); return; }
     setSaving(true);
     try {
       await onSubmit({
@@ -61,6 +64,8 @@ export function GoalDialog({
         color,
       });
       onOpenChange(false);
+    } catch {
+      // The caller reports the error; preserve the entered values for retry.
     } finally {
       setSaving(false);
     }

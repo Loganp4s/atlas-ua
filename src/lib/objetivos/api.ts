@@ -9,7 +9,7 @@ import type {
   ObjStatus,
   ObjStep,
 } from "./types";
-import { CATEGORY_IDS, PRIORITY_IDS, clampProgress } from "./meta";
+import { CATEGORY_IDS, PRIORITY_IDS, clampProgress, computeProgress, statusAfterProgress } from "./meta";
 
 async function uid(): Promise<string> {
   const { data } = await supabase.auth.getUser();
@@ -65,7 +65,7 @@ function normalize(input: ObjectiveInput) {
     notes: input.notes?.trim() || null,
     number_unit: input.number_unit?.trim() || null,
     emoji: input.emoji?.trim() || "🎯",
-    manual_progress: clampProgress(input.manual_progress ?? 0),
+    ...(input.manual_progress !== undefined ? { manual_progress: clampProgress(input.manual_progress) } : {}),
   };
 }
 
@@ -140,6 +140,23 @@ export async function setObjectiveStatus(
 
 /* ------------------------------ Etapas ------------------------------ */
 
+async function stepContext(objectiveId: string) {
+  const { data, error } = await supabase.from("obj_objectives").select("*").eq("id", objectiveId).eq("user_id", await uid()).single();
+  if (error) throw error;
+  return { objective: data as unknown as ObjObjective, steps: await listSteps(objectiveId) };
+}
+
+async function syncStepStatus(before: Awaited<ReturnType<typeof stepContext>>) {
+  const { objective, steps } = before;
+  const nextSteps = await listSteps(objective.id);
+  const next = statusAfterProgress(computeProgress(objective.manual_progress, steps), computeProgress(objective.manual_progress, nextSteps), objective.status);
+  if (next !== objective.status) {
+    // Do not overwrite a status the user changed while the step was saving.
+    const { error } = await supabase.from("obj_objectives").update({ status: next }).eq("id", objective.id).eq("user_id", await uid()).eq("status", objective.status);
+    if (error) throw error;
+  }
+}
+
 export async function listSteps(objectiveId: string): Promise<ObjStep[]> {
   const { data, error } = await supabase
     .from("obj_steps")
@@ -169,6 +186,7 @@ export async function createStep(
   const clean = title.trim();
   if (!clean) throw new Error("Dê um título à etapa.");
   const user_id = await uid();
+  const before = await stepContext(objectiveId);
   const { data, error } = await supabase
     .from("obj_steps")
     .insert({
@@ -188,10 +206,12 @@ export async function createStep(
     throw error;
   }
   await logHistory(objectiveId, "etapa_criada", `Etapa "${clean}" criada`);
+  await syncStepStatus(before);
   return data as unknown as ObjStep;
 }
 
 export async function toggleStep(step: ObjStep): Promise<ObjStep> {
+  const before = await stepContext(step.objective_id);
   const done = !step.done;
   const { data, error } = await supabase
     .from("obj_steps")
@@ -206,12 +226,17 @@ export async function toggleStep(step: ObjStep): Promise<ObjStep> {
       "etapa_concluida",
       `Etapa "${step.title}" concluída`,
     );
+  await syncStepStatus(before);
   return data as unknown as ObjStep;
 }
 
 export async function deleteStep(id: string): Promise<void> {
+  const { data: step, error: readError } = await supabase.from("obj_steps").select("objective_id").eq("id", id).eq("user_id", await uid()).single();
+  if (readError) throw readError;
+  const before = await stepContext(step.objective_id);
   const { error } = await supabase.from("obj_steps").delete().eq("id", id).eq("user_id", await uid());
   if (error) throw error;
+  await syncStepStatus(before);
 }
 
 /* ----------------------------- Histórico ----------------------------- */

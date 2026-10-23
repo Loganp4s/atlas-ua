@@ -1,4 +1,5 @@
 import type { RoutineFrequency, Weekday } from "./types";
+import { cleanEventTitle, parseTemporal } from "./temporal";
 
 export type IntentCategory =
   | "prioridade"
@@ -12,6 +13,9 @@ export interface Interpretation {
   title: string;
   /** yyyy-mm-dd, only for compromisso */
   date?: string;
+  endDate?: string;
+  description?: string;
+  error?: string;
   /** HH:mm, only for compromisso */
   time?: string;
   /** Only for rotina; empty array = "todos os dias" */
@@ -83,12 +87,11 @@ function extractTime(text: string): string | undefined {
   return undefined;
 }
 
-function extractDate(text: string): string | undefined {
+function extractDate(text: string, today = new Date()): string | undefined {
   const lower = stripAccents(text.toLowerCase());
-  const today = new Date();
 
   if (/\bhoje\b/.test(lower)) return toISO(today);
-  if (/\bamanha\b/.test(lower)) {
+  if (/\bamanha\b/.test(lower) && !/\bdepois de amanha\b/.test(lower)) {
     const d = new Date(today);
     d.setDate(d.getDate() + 1);
     return toISO(d);
@@ -114,9 +117,9 @@ function extractDate(text: string): string | undefined {
     }
     let year = today.getFullYear();
     const candidate = new Date(year, month, day);
-    if (candidate < today && !dm[2]) {
-      candidate.setMonth(candidate.getMonth() + 1);
-    }
+    const midnight = new Date(today); midnight.setHours(0, 0, 0, 0);
+    if (candidate < midnight && !dm[2]) candidate.setMonth(candidate.getMonth() + 1);
+    if (candidate.getDate() !== day) return undefined;
     return toISO(candidate);
   }
 
@@ -124,7 +127,7 @@ function extractDate(text: string): string | undefined {
   for (const [name, info] of Object.entries(WEEKDAY_MAP)) {
     const norm = stripAccents(name);
     const re = new RegExp(`\\b${norm}\\b`);
-    if (re.test(lower)) return toISO(nextWeekday(info.js));
+    if (re.test(lower)) return toISO(nextWeekday(info.js, today));
   }
 
   return undefined;
@@ -201,6 +204,7 @@ const OBJETIVO_HINTS = [
 const COMPROMISSO_HINTS = [
   /\breuniao\b/,
   /\bconsulta\b/,
+  /\bdentista\b/,
   /\bencontro\b/,
   /\bentrevista\b/,
   /\baniversario\b/,
@@ -263,7 +267,7 @@ const DAILY_HINTS = [
 
 /* ---------------- main ---------------- */
 
-export function classifyInput(raw: string): Interpretation {
+export function classifyInput(raw: string, now = new Date()): Interpretation {
   const text = raw.trim();
   const lower = stripAccents(text.toLowerCase());
 
@@ -277,8 +281,9 @@ export function classifyInput(raw: string): Interpretation {
     return { category: "nota", title: cleanTitle(stripped || text), confidence: 0.9 };
   }
 
-  const time = extractTime(text);
-  const date = extractDate(text);
+  const temporal = parseTemporal(text, now);
+  const time = temporal.time;
+  const date = temporal.date ?? extractDate(text, now);
   const routineDays = extractRoutineDays(text);
   const hasRoutineHint = ROUTINE_HINTS.some((r) => r.test(lower));
   const hasDailyHint = DAILY_HINTS.some((r) => r.test(lower));
@@ -287,12 +292,15 @@ export function classifyInput(raw: string): Interpretation {
   const hasCompromissoHint = COMPROMISSO_HINTS.some((r) => r.test(lower));
 
   const title = cleanTitle(text);
+  const eventTitle = cleanTitle(cleanEventTitle(temporal.title));
+  const eventFields = { date, endDate: temporal.endDate, time, description: text, error: temporal.error };
+  if (temporal.error) return { category: null, title: eventTitle, ...eventFields, confidence: 0 };
 
   // Rotina / Hábito: recurrence keywords, habit verbs without a date/time,
   // or multiple weekdays without a specific time.
   const looksLikeHabit =
     hasRoutineHint ||
-    (routineDays.length >= 2 && !time) ||
+    (routineDays.length >= 2 && !!habitVerb && !time && !hasCompromissoHint) ||
     (!!habitVerb && !time && !date);
 
   if (looksLikeHabit) {
@@ -308,12 +316,11 @@ export function classifyInput(raw: string): Interpretation {
   }
 
   // Compromisso: has time, or has date + event-like keyword
-  if (time || (date && hasCompromissoHint)) {
+  if (time || temporal.hasRange || (date && hasCompromissoHint)) {
     return {
       category: "compromisso",
-      title,
-      date,
-      time,
+      title: eventTitle,
+      ...eventFields,
       confidence: time && date ? 0.95 : 0.75,
     };
   }
@@ -338,10 +345,5 @@ export function classifyInput(raw: string): Interpretation {
     return { category: "prioridade", title, date, confidence: 0.7 };
   }
 
-  if (words <= 6) {
-    return { category: "prioridade", title, date, confidence: 0.55 };
-  }
-
-  // Fallback: salva como nota livre para não perder a ideia do usuário.
-  return { category: "nota", title, date, time, confidence: 0.4 };
+  return { category: null, title, ...eventFields, confidence: 0.4 };
 }

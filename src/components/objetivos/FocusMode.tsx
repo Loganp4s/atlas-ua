@@ -9,11 +9,13 @@ export function FocusMode({
   steps,
   onToggle,
   onExit,
+  disabled = false,
 }: {
   objective: ObjObjective;
   steps: ObjStep[];
   onToggle: (step: ObjStep) => void;
   onExit: () => void;
+  disabled?: boolean;
 }) {
   const progress = computeProgress(objective.manual_progress, steps);
   const next = steps.find((s) => !s.done);
@@ -54,7 +56,7 @@ export function FocusMode({
           <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
             Etapas
           </p>
-          <StepsList steps={steps} onToggle={onToggle} compact />
+          <StepsList steps={steps} onToggle={onToggle} disabled={disabled} compact />
         </div>
       </div>
     </div>

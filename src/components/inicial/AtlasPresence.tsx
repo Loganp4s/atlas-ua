@@ -7,6 +7,10 @@ import type { Weekday } from "@/lib/atlas/types";
 import { createEvent, createHabit, createNote, createTask } from "@/lib/rotina/api";
 import { createObjective } from "@/lib/objetivos/api";
 import { todayYmd } from "@/lib/rotina/streak";
+import { Button } from "@/components/ui/button";
+import type { ObjObjective } from "@/lib/objetivos/types";
+import { FinancialGoalSuggestion } from "@/components/objetivos/FinancialGoalSuggestion";
+import { cleanEventTitle, parseTemporal } from "@/lib/atlas/temporal";
 
 const PLACEHOLDERS = [
   "Escreva para o Atlas...",
@@ -44,6 +48,8 @@ type State =
 export function AtlasPresence() {
   const qc = useQueryClient();
   const [text, setText] = useState("");
+  const [financialObjective, setFinancialObjective] = useState<ObjObjective | null>(null);
+  const savingRef = useRef(false);
   const [state, setState] = useState<State>({ kind: "idle" });
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const areaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -71,6 +77,7 @@ export function AtlasPresence() {
   }, [state]);
 
   async function save(raw: string, forced?: IntentCategory) {
+    if (savingRef.current || !raw.trim()) return;
     const interpretation = classifyInput(raw);
     const category = forced ?? interpretation.category;
 
@@ -79,12 +86,17 @@ export function AtlasPresence() {
       return;
     }
 
+    if (category !== "nota" && interpretation.error) { toast.error(interpretation.error); return; }
+    const title = category === "compromisso" ? cleanEventTitle(parseTemporal(raw).title) : interpretation.title;
+    if (!title.trim()) { toast.error("Informe um nome além das datas e horários."); return; }
+
+    savingRef.current = true;
     setState({ kind: "thinking" });
     try {
       let message = "";
       if (category === "prioridade") {
         await createTask({
-          title: interpretation.title || raw,
+          title,
           priority: "media",
           due_date: interpretation.date ?? null,
           due_time: interpretation.time ? `${interpretation.time}:00` : null,
@@ -93,9 +105,10 @@ export function AtlasPresence() {
         message = `Guardei "${interpretation.title || raw}" como tarefa em Rotina.`;
       } else if (category === "compromisso") {
         await createEvent({
-          title: interpretation.title || raw,
+          title,
+          description: raw,
           event_date: interpretation.date ?? todayYmd(),
-          end_date: interpretation.date ?? todayYmd(),
+          end_date: interpretation.endDate ?? interpretation.date ?? todayYmd(),
           start_time: interpretation.time ? `${interpretation.time}:00` : null,
           color: "#6366f1",
         });
@@ -116,13 +129,14 @@ export function AtlasPresence() {
           days.length === 0 ? " para todos os dias" : ""
         }, em Rotina › Hábitos.`;
       } else if (category === "objetivo") {
-        await createObjective({
+        const objective = await createObjective({
           name: interpretation.title || raw,
           category: "pessoal",
           priority: "normal",
           deadline: interpretation.date ?? null,
           description: interpretation.goal ?? null,
         });
+        setFinancialObjective(objective);
         await qc.invalidateQueries({ queryKey: ["objetivos", "list"] });
         message = `Criei o objetivo "${interpretation.title || raw}". Você pode dividi-lo em etapas depois.`;
       } else {
@@ -133,8 +147,11 @@ export function AtlasPresence() {
       setText("");
       setState({ kind: "done", message });
     } catch (err) {
+      setText(raw);
       setState({ kind: "idle" });
       toast.error(err instanceof Error ? err.message : "Não consegui guardar agora.");
+    } finally {
+      savingRef.current = false;
     }
   }
 
@@ -181,11 +198,12 @@ export function AtlasPresence() {
           ref={areaRef}
           value={text}
           rows={2}
-          onChange={(e) => setText(e.target.value)}
+          disabled={busy}
+          onChange={(e) => { setText(e.target.value); if (state.kind === "ask") setState({ kind: "idle" }); }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              if (text.trim()) void save(text.trim());
+              if (!busy && text.trim()) void save(text.trim());
             }
           }}
           placeholder={PLACEHOLDERS[placeholderIndex]}
@@ -194,17 +212,17 @@ export function AtlasPresence() {
         <div className="mt-1 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1">
             {canSpeak ? (
-              <button
+              <Button
                 type="button"
                 onClick={startVoice}
                 aria-label="Falar com o Atlas"
                 className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               >
                 <Mic className="h-4 w-4" strokeWidth={1.75} />
-              </button>
+              </Button>
             ) : null}
           </div>
-          <button
+          <Button
             type="button"
             disabled={!text.trim() || busy}
             onClick={() => void save(text.trim())}
@@ -216,7 +234,7 @@ export function AtlasPresence() {
             ) : (
               <ArrowUp className="h-4 w-4" strokeWidth={1.75} />
             )}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -233,14 +251,14 @@ export function AtlasPresence() {
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {CATEGORY_OPTIONS.map((opt) => (
-              <button
+              <Button
                 key={opt.value}
                 type="button"
                 onClick={() => void save(state.text, opt.value)}
                 className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
               >
                 {opt.label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -251,6 +269,7 @@ export function AtlasPresence() {
           {state.message}
         </p>
       ) : null}
+      {financialObjective ? <div className="mt-4"><FinancialGoalSuggestion key={financialObjective.id} objective={financialObjective} onDismiss={() => setFinancialObjective(null)} /></div> : null}
     </section>
   );
 }

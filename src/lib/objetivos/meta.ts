@@ -91,6 +91,11 @@ export function derivedStatus(progress: number, current: ObjStatus): ObjStatus {
   return "nao_iniciado";
 }
 
+/** Only advance an automatically matching status; explicit choices remain intact. */
+export function statusAfterProgress(before: number, after: number, current: ObjStatus): ObjStatus {
+  return current === derivedStatus(before, current) ? derivedStatus(after, current) : current;
+}
+
 export function daysUntil(iso: string | null): number | null {
   if (!iso) return null;
   const [y, m, d] = iso.split("-").map(Number);
