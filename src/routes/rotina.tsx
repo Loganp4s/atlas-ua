@@ -13,6 +13,10 @@ export const Route = createFileRoute("/rotina")({
   head: () => ({
     meta: [
       { title: "Rotina — Atlas" },
+      { property: "og:title", content: "Rotina — Atlas" },
+      { property: "og:description", content: "Tarefas, compromissos, hábitos e notas no Atlas." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       {
         name: "description",
         content: "Rotina no Atlas: tarefas e compromissos organizados com leveza.",

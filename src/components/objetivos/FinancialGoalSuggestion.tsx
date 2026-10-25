@@ -15,11 +15,13 @@ export function FinancialGoalSuggestion({ objective, onDismiss }: { objective: O
   const [formOpen, setFormOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const created = useRef<FinGoal | null>(null);
-  const { data: goals = [], isLoading, isError, refetch } = useQuery({ queryKey: ["financeiro", "goals"], queryFn: listGoals });
+  const saving = useRef(false);
+  const { data: goals = [], isLoading, isError, refetch } = useQuery({ queryKey: ["fin", "goals"], queryFn: listGoals });
   const related = relatedFinancialGoal(objective, goals);
 
   async function connect(input?: GoalInput) {
-    if (busy) return;
+    if (saving.current) return;
+    saving.current = true;
     setBusy(true);
     try {
       const latest = (await listObjectives()).find((o) => o.id === objective.id);
@@ -40,7 +42,8 @@ export function FinancialGoalSuggestion({ objective, onDismiss }: { objective: O
       toast.error(created.current ? "A meta foi criada, mas o vínculo falhou. Tente novamente para vincular a mesma meta." : err instanceof Error ? err.message : "Não foi possível criar a meta.");
       throw err;
     } finally {
-      await qc.invalidateQueries({ queryKey: ["financeiro", "goals"] });
+      await qc.invalidateQueries({ queryKey: ["fin", "goals"] });
+      saving.current = false;
       setBusy(false);
     }
   }

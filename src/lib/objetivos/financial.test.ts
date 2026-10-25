@@ -1,0 +1,15 @@
+import { test, expect } from "bun:test";
+import { needsFinancialGoal, relatedFinancialGoal } from "./financial";
+import type { FinGoal } from "@/lib/financeiro/types";
+const objective = { name: "Comprar um carro", description: null, category: "pessoal" as const, target_amount: null, linked_goal_id: null };
+test("carro sugere meta", () => expect(needsFinancialGoal(objective)).toBe(true));
+test("leitura não sugere", () => expect(needsFinancialGoal({ ...objective, name: "Melhorar minha leitura" })).toBe(false));
+test("corrida não sugere", () => expect(needsFinancialGoal({ ...objective, name: "Correr três vezes por semana" })).toBe(false));
+test("categoria financeiro é evidência", () => expect(needsFinancialGoal({ ...objective, name: "Futuro", category: "financeiro" })).toBe(true));
+test("valor preenchido é evidência", () => expect(needsFinancialGoal({ ...objective, name: "Projeto", target_amount: 2500 })).toBe(true));
+test("descrição é evidência", () => expect(needsFinancialGoal({ ...objective, name: "Projeto", description: "Economizar para a próxima fase" })).toBe(true));
+test("vinculado não sugere outra meta", () => expect(needsFinancialGoal({ ...objective, linked_goal_id: "existing" })).toBe(false));
+const goal: FinGoal = { id: "g", user_id: "u", name: "Carro", target_amount: 50000, current_amount: 0, deadline: null, color: "", created_at: "", updated_at: "" };
+test("meta claramente relacionada oferece vínculo", () => expect(relatedFinancialGoal(objective, [goal])?.id).toBe("g"));
+test("nomes apenas parecidos não vinculam", () => expect(relatedFinancialGoal(objective, [{ ...goal, name: "Carro da minha irmã" }])).toBeUndefined());
+test("múltiplas correspondências não são escolhidas automaticamente", () => expect(relatedFinancialGoal(objective, [goal, { ...goal, id: "other" }])).toBeUndefined());

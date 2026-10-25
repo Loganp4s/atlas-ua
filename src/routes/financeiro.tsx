@@ -15,6 +15,8 @@ export const Route = createFileRoute("/financeiro")({
   head: () => ({
     meta: [
       { title: "Financeiro — Atlas" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       {
         name: "description",
         content:
