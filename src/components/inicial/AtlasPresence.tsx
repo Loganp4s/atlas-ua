@@ -81,13 +81,14 @@ export function AtlasPresence() {
     const interpretation = classifyInput(raw);
     const category = forced ?? interpretation.category;
 
+    if (forced !== "nota" && interpretation.error) { toast.error(interpretation.error); return; }
+
     if (!category) {
       setState({ kind: "ask", text: raw });
       return;
     }
 
-    if (category !== "nota" && interpretation.error) { toast.error(interpretation.error); return; }
-    const title = category === "compromisso" ? cleanEventTitle(parseTemporal(raw).title) : interpretation.title;
+    const title = category === "compromisso" && interpretation.category !== "compromisso" ? cleanEventTitle(parseTemporal(raw).title) : interpretation.title;
     if (!title.trim()) { toast.error("Informe um nome além das datas e horários."); return; }
 
     savingRef.current = true;
@@ -214,6 +215,7 @@ export function AtlasPresence() {
             {canSpeak ? (
               <Button
                 type="button"
+                variant="ghost"
                 onClick={startVoice}
                 aria-label="Falar com o Atlas"
                 className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
@@ -254,6 +256,7 @@ export function AtlasPresence() {
               <Button
                 key={opt.value}
                 type="button"
+                variant="outline"
                 onClick={() => void save(state.text, opt.value)}
                 className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
               >
