@@ -95,17 +95,15 @@ export function ObjectiveDetail({
   const addStep = useMutation({
     mutationFn: ({ title, due }: { title: string; due: string | null }) =>
       createStep(id, title, due, steps.length),
-    onSuccess: refresh,
+    onSettled: refresh,
   });
   const toggle = useMutation({
     mutationFn: (step: ObjStep) => toggleStep(step),
-    onSuccess: refresh,
     onSettled: refresh,
     onError: (e: Error) => toast.error(e.message),
   });
   const removeStep = useMutation({
     mutationFn: (step: ObjStep) => deleteStep(step.id),
-    onSuccess: refresh,
     onSettled: refresh,
     onError: (e: Error) => toast.error(e.message),
   });
@@ -149,6 +147,7 @@ export function ObjectiveDetail({
       <FocusMode
         objective={objective}
         steps={steps}
+        disabled={toggle.isPending}
         onToggle={(s) => toggle.mutate(s)}
         onExit={() => setFocus(false)}
       />

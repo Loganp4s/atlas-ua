@@ -1,0 +1,12 @@
+import { test, expect } from "bun:test";
+import { computeProgress, statusAfterProgress } from "./meta";
+test("duas de quatro etapas são 50%", () => expect(computeProgress(35, [{ done: true }, { done: true }, { done: false }, { done: false }])).toBe(50));
+test("terceira concluída é 75%", () => expect(computeProgress(35, [{ done: true }, { done: true }, { done: true }, { done: false }])).toBe(75));
+test("exclusão recalcula denominador", () => expect(computeProgress(35, [{ done: true }, { done: true }, { done: false }])).toBe(67));
+test("sem etapas preserva 35% manual", () => expect(computeProgress(35, [])).toBe(35));
+test("todas concluídas são 100%", () => expect(computeProgress(35, [{ done: true }, { done: true }])).toBe(100));
+test("nenhuma concluída é 0%", () => expect(computeProgress(35, [{ done: false }, { done: false }])).toBe(0));
+test("progresso nunca ultrapassa limites", () => { expect(computeProgress(150, [])).toBe(100); expect(computeProgress(-5, [])).toBe(0); });
+test("status arquivado é preservado", () => expect(statusAfterProgress(50, 100, "arquivado")).toBe("arquivado"));
+test("escolha explícita não é sobrescrita", () => expect(statusAfterProgress(50, 75, "nao_iniciado")).toBe("nao_iniciado"));
+test("status automático acompanha conclusão e reabertura", () => { expect(statusAfterProgress(75, 100, "em_andamento")).toBe("concluido"); expect(statusAfterProgress(100, 75, "concluido")).toBe("em_andamento"); });
