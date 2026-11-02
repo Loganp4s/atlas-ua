@@ -319,6 +319,19 @@ export function classifyInput(raw: string, now = new Date()): Interpretation {
   const eventFields = { date, endDate: temporal.endDate, time, description: text, error: temporal.error };
   if (temporal.error) return { category: null, title: eventTitle, ...eventFields, confidence: 0 };
 
+  // Financial intent: money + an action or savings verb. Interpretation only —
+  // it never represents an executed transaction.
+  const amount = extractAmount(text);
+  const finAction = FIN_ACTION_RE.test(lower);
+  const finGoal = FIN_GOAL_RE.test(lower);
+  const isFinancial = amount !== undefined && (finAction || finGoal);
+
+  // Recurring financial action ("guardar R$ 50 toda semana"): ambiguous
+  // between a habit and a recurring savings goal — ask instead of guessing.
+  if (isFinancial && hasRoutineHint) {
+    return { category: null, title, financial: "rotina", amount, confidence: 0.6 };
+  }
+
   // Rotina / Hábito: recurrence keywords, habit verbs without a date/time,
   // or multiple weekdays without a specific time.
   const looksLikeHabit =
