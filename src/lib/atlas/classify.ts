@@ -24,6 +24,10 @@ export interface Interpretation {
   frequency?: RoutineFrequency;
   /** Short auto-generated purpose (for rotina/objetivo) */
   goal?: string;
+  /** Financial intent detected in the text (never a real transaction) */
+  financial?: "acao" | "objetivo" | "rotina";
+  /** Monetary amount in BRL, when mentioned */
+  amount?: number;
   /** Confidence 0-1 (for internal tuning, not shown to user) */
   confidence: number;
 }
@@ -226,6 +230,25 @@ const NOTE_HINTS = [
   /^guardar\s+ideia\b/,
 ];
 
+/* ---------------- financial intent ---------------- */
+
+const MONEY_AMOUNT_RE = /r\$\s*([\d.,]+)|\b([\d.,]+)\s*(reais|real|mil)\b/i;
+const FIN_ACTION_RE = /\b(guardar|separar|transferir|depositar|pagar|aplicar|investir)\b/;
+const FIN_GOAL_RE = /\b(juntar|economizar|poupar|acumular|formar|montar)\b/;
+
+/** Extracts a BRL amount from pt-BR text ("R$ 2.000" → 2000, "50 reais" → 50). */
+function extractAmount(text: string): number | undefined {
+  const m = MONEY_AMOUNT_RE.exec(text);
+  if (!m) return undefined;
+  let n = m[1] ?? m[2];
+  if (/,\d{1,2}$/.test(n)) n = n.replace(/\./g, "").replace(",", ".");
+  else n = n.replace(/[.,]/g, "");
+  let value = parseFloat(n);
+  if (!Number.isFinite(value)) return undefined;
+  if ((m[3] ?? "").toLowerCase() === "mil") value *= 1000;
+  return value;
+}
+
 /* ---------------- title cleanup ---------------- */
 
 const NOISE_PREFIXES = [
@@ -296,6 +319,19 @@ export function classifyInput(raw: string, now = new Date()): Interpretation {
   const eventFields = { date, endDate: temporal.endDate, time, description: text, error: temporal.error };
   if (temporal.error) return { category: null, title: eventTitle, ...eventFields, confidence: 0 };
 
+  // Financial intent: money + an action or savings verb. Interpretation only —
+  // it never represents an executed transaction.
+  const amount = extractAmount(text);
+  const finAction = FIN_ACTION_RE.test(lower);
+  const finGoal = FIN_GOAL_RE.test(lower);
+  const isFinancial = amount !== undefined && (finAction || finGoal);
+
+  // Recurring financial action ("guardar R$ 50 toda semana"): ambiguous
+  // between a habit and a recurring savings goal — ask instead of guessing.
+  if (isFinancial && hasRoutineHint) {
+    return { category: null, title, financial: "rotina", amount, confidence: 0.6 };
+  }
+
   // Rotina / Hábito: recurrence keywords, habit verbs without a date/time,
   // or multiple weekdays without a specific time.
   const looksLikeHabit =
@@ -323,6 +359,15 @@ export function classifyInput(raw: string, now = new Date()): Interpretation {
       ...eventFields,
       confidence: time && date ? 0.95 : 0.75,
     };
+  }
+
+  // Financial intent with an amount: a one-off action (noted as a task, never
+  // executed) or a savings objective. Commitments above keep precedence.
+  if (isFinancial) {
+    if (finGoal) {
+      return { category: "objetivo", title, financial: "objetivo", amount, confidence: 0.85 };
+    }
+    return { category: "prioridade", title, date, financial: "acao", amount, confidence: 0.8 };
   }
 
   // Objetivo

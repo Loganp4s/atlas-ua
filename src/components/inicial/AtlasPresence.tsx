@@ -41,7 +41,7 @@ const CATEGORY_OPTIONS: { value: IntentCategory; label: string }[] = [
 type State =
   | { kind: "idle" }
   | { kind: "thinking" }
-  | { kind: "ask"; text: string }
+  | { kind: "ask"; text: string; financialHabit?: boolean }
   | { kind: "done"; message: string };
 
 /** Presença do Atlas: entrada natural que interpreta e guarda no lugar certo. */
@@ -84,7 +84,7 @@ export function AtlasPresence() {
     if (forced !== "nota" && interpretation.error) { toast.error(interpretation.error); return; }
 
     if (!category) {
-      setState({ kind: "ask", text: raw });
+      setState({ kind: "ask", text: raw, financialHabit: interpretation.financial === "rotina" });
       return;
     }
 
@@ -103,7 +103,9 @@ export function AtlasPresence() {
           due_time: interpretation.time ? `${interpretation.time}:00` : null,
         });
         await qc.invalidateQueries({ queryKey: ["rotina", "tasks"] });
-        message = `Guardei "${interpretation.title || raw}" como tarefa em Rotina.`;
+        message = interpretation.financial === "acao"
+          ? `Anotei "${interpretation.title || raw}" como tarefa em Rotina. Nenhuma movimentação foi feita — é só um lembrete.`
+          : `Guardei "${interpretation.title || raw}" como tarefa em Rotina.`;
       } else if (category === "compromisso") {
         await createEvent({
           title,
@@ -130,12 +132,14 @@ export function AtlasPresence() {
           days.length === 0 ? " para todos os dias" : ""
         }, em Rotina › Hábitos.`;
       } else if (category === "objetivo") {
+        const isFinancial = !!interpretation.financial;
         const objective = await createObjective({
           name: interpretation.title || raw,
-          category: "pessoal",
+          category: isFinancial ? "financeiro" : "pessoal",
           priority: "normal",
           deadline: interpretation.date ?? null,
           description: interpretation.goal ?? null,
+          ...(isFinancial && interpretation.amount ? { target_amount: interpretation.amount } : {}),
         });
         setFinancialObjective(objective);
         await qc.invalidateQueries({ queryKey: ["objetivos", "list"] });
@@ -249,10 +253,18 @@ export function AtlasPresence() {
       {state.kind === "ask" ? (
         <div className="mt-3 rounded-2xl border border-border/70 bg-secondary/40 p-4 animate-in fade-in slide-in-from-bottom-1">
           <p className="text-sm leading-relaxed text-foreground">
-            Não ficou claro para mim. Onde eu guardo isso?
+            {state.financialHabit
+              ? "Entendi que é uma economia recorrente. Como você quer acompanhar?"
+              : "Não ficou claro para mim. Onde eu guardo isso?"}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {CATEGORY_OPTIONS.map((opt) => (
+            {(state.financialHabit
+              ? [
+                  { value: "rotina" as IntentCategory, label: "Hábito recorrente" },
+                  { value: "objetivo" as IntentCategory, label: "Meta de economia" },
+                ]
+              : CATEGORY_OPTIONS
+            ).map((opt) => (
               <Button
                 key={opt.value}
                 type="button"
