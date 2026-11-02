@@ -253,10 +253,18 @@ export function AtlasPresence() {
       {state.kind === "ask" ? (
         <div className="mt-3 rounded-2xl border border-border/70 bg-secondary/40 p-4 animate-in fade-in slide-in-from-bottom-1">
           <p className="text-sm leading-relaxed text-foreground">
-            Não ficou claro para mim. Onde eu guardo isso?
+            {state.financialHabit
+              ? "Entendi que é uma economia recorrente. Como você quer acompanhar?"
+              : "Não ficou claro para mim. Onde eu guardo isso?"}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {CATEGORY_OPTIONS.map((opt) => (
+            {(state.financialHabit
+              ? [
+                  { value: "rotina" as IntentCategory, label: "Hábito recorrente" },
+                  { value: "objetivo" as IntentCategory, label: "Meta de economia" },
+                ]
+              : CATEGORY_OPTIONS
+            ).map((opt) => (
               <Button
                 key={opt.value}
                 type="button"
