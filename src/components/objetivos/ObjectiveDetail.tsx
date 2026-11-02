@@ -45,6 +45,7 @@ import { ObjectiveProgress } from "./ObjectiveProgress";
 import { PriorityDots } from "./PriorityDots";
 import { StepsList } from "./StepsList";
 import { FocusMode } from "./FocusMode";
+import { FinancialGoalSuggestion } from "./FinancialGoalSuggestion";
 import { listGoals } from "@/lib/financeiro/api";
 import { listHabits } from "@/lib/rotina/api";
 import { confirmDelete, LoadError } from "@/components/atlas/ConfirmHost";
@@ -63,7 +64,9 @@ export function ObjectiveDetail({
   const qc = useQueryClient();
   const [focus, setFocus] = useState(false);
   const [manualDraft, setManualDraft] = useState(0);
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
   useEffect(() => { setManualDraft(objective?.manual_progress ?? 0); }, [objective?.id, objective?.manual_progress]);
+  useEffect(() => { setSuggestionDismissed(false); }, [objective?.id]);
   const id = objective?.id ?? "";
 
   const { data: steps = [], isLoading: stepsLoading, isError: stepsError, refetch: refetchSteps } = useQuery({
@@ -193,6 +196,15 @@ export function ObjectiveDetail({
           <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
             {objective.description}
           </p>
+        ) : null}
+
+        {!suggestionDismissed ? (
+          <div className="mt-4">
+            <FinancialGoalSuggestion
+              objective={objective}
+              onDismiss={() => setSuggestionDismissed(true)}
+            />
+          </div>
         ) : null}
 
         <div className="mt-5">
