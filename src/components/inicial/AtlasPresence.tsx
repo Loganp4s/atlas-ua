@@ -103,7 +103,9 @@ export function AtlasPresence() {
           due_time: interpretation.time ? `${interpretation.time}:00` : null,
         });
         await qc.invalidateQueries({ queryKey: ["rotina", "tasks"] });
-        message = `Guardei "${interpretation.title || raw}" como tarefa em Rotina.`;
+        message = interpretation.financial === "acao"
+          ? `Anotei "${interpretation.title || raw}" como tarefa em Rotina. Nenhuma movimentação foi feita — é só um lembrete.`
+          : `Guardei "${interpretation.title || raw}" como tarefa em Rotina.`;
       } else if (category === "compromisso") {
         await createEvent({
           title,
@@ -130,12 +132,14 @@ export function AtlasPresence() {
           days.length === 0 ? " para todos os dias" : ""
         }, em Rotina › Hábitos.`;
       } else if (category === "objetivo") {
+        const isFinancial = !!interpretation.financial;
         const objective = await createObjective({
           name: interpretation.title || raw,
-          category: "pessoal",
+          category: isFinancial ? "financeiro" : "pessoal",
           priority: "normal",
           deadline: interpretation.date ?? null,
           description: interpretation.goal ?? null,
+          ...(isFinancial && interpretation.amount ? { target_amount: interpretation.amount } : {}),
         });
         setFinancialObjective(objective);
         await qc.invalidateQueries({ queryKey: ["objetivos", "list"] });
