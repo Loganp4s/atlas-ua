@@ -41,7 +41,7 @@ const CATEGORY_OPTIONS: { value: IntentCategory; label: string }[] = [
 type State =
   | { kind: "idle" }
   | { kind: "thinking" }
-  | { kind: "ask"; text: string }
+  | { kind: "ask"; text: string; financialHabit?: boolean }
   | { kind: "done"; message: string };
 
 /** Presença do Atlas: entrada natural que interpreta e guarda no lugar certo. */
@@ -84,7 +84,7 @@ export function AtlasPresence() {
     if (forced !== "nota" && interpretation.error) { toast.error(interpretation.error); return; }
 
     if (!category) {
-      setState({ kind: "ask", text: raw });
+      setState({ kind: "ask", text: raw, financialHabit: interpretation.financial === "rotina" });
       return;
     }
 
