@@ -361,6 +361,15 @@ export function classifyInput(raw: string, now = new Date()): Interpretation {
     };
   }
 
+  // Financial intent with an amount: a one-off action (noted as a task, never
+  // executed) or a savings objective. Commitments above keep precedence.
+  if (isFinancial) {
+    if (finGoal) {
+      return { category: "objetivo", title, financial: "objetivo", amount, confidence: 0.85 };
+    }
+    return { category: "prioridade", title, date, financial: "acao", amount, confidence: 0.8 };
+  }
+
   // Objetivo
   if (hasObjetivoHint) {
     return { category: "objetivo", title, goal: title, confidence: 0.85 };
