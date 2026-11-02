@@ -24,6 +24,10 @@ export interface Interpretation {
   frequency?: RoutineFrequency;
   /** Short auto-generated purpose (for rotina/objetivo) */
   goal?: string;
+  /** Financial intent detected in the text (never a real transaction) */
+  financial?: "acao" | "objetivo" | "rotina";
+  /** Monetary amount in BRL, when mentioned */
+  amount?: number;
   /** Confidence 0-1 (for internal tuning, not shown to user) */
   confidence: number;
 }
@@ -225,6 +229,25 @@ const NOTE_HINTS = [
   /^lembrar\s+que\b/,
   /^guardar\s+ideia\b/,
 ];
+
+/* ---------------- financial intent ---------------- */
+
+const MONEY_AMOUNT_RE = /r\$\s*([\d.,]+)|\b([\d.,]+)\s*(reais|real|mil)\b/i;
+const FIN_ACTION_RE = /\b(guardar|separar|transferir|depositar|pagar|aplicar|investir)\b/;
+const FIN_GOAL_RE = /\b(juntar|economizar|poupar|acumular|formar|montar)\b/;
+
+/** Extracts a BRL amount from pt-BR text ("R$ 2.000" → 2000, "50 reais" → 50). */
+function extractAmount(text: string): number | undefined {
+  const m = MONEY_AMOUNT_RE.exec(text);
+  if (!m) return undefined;
+  let n = m[1] ?? m[2];
+  if (/,\d{1,2}$/.test(n)) n = n.replace(/\./g, "").replace(",", ".");
+  else n = n.replace(/[.,]/g, "");
+  let value = parseFloat(n);
+  if (!Number.isFinite(value)) return undefined;
+  if ((m[3] ?? "").toLowerCase() === "mil") value *= 1000;
+  return value;
+}
 
 /* ---------------- title cleanup ---------------- */
 
