@@ -20,4 +20,22 @@ describe("Interpretação do Atlas", () => {
   test("texto ambíguo pede categoria", () => expect(classifyInput("Talvez seja interessante pensar sobre aquela conversa de ontem", now).category).toBeNull());
   test("número no título permanece", () => expect(classifyInput("Viagem da turma 20 de 20/11 até 15/12", now).title).toBe("Viagem da turma 20"));
   test("horário inválido não é truncado", () => expect(classifyInput("Dentista quarta às 25h", now).error).toBeTruthy());
+  test("ação financeira imediata vira tarefa, nunca movimentação", () => {
+    expect(classifyInput("Guardar R$ 50 na conta PicPay", now)).toMatchObject({ category: "prioridade", financial: "acao", amount: 50 });
+  });
+  test("objetivo de economia com valor", () => {
+    expect(classifyInput("Quero juntar R$ 2.000", now)).toMatchObject({ category: "objetivo", financial: "objetivo", amount: 2000 });
+  });
+  test("ação financeira com prazo", () => {
+    expect(classifyInput("Transferir R$ 50 para o PicPay amanhã", now)).toMatchObject({ category: "prioridade", financial: "acao", amount: 50, date: "2026-10-24" });
+  });
+  test("economia recorrente pede esclarecimento", () => {
+    expect(classifyInput("Guardar R$ 50 toda semana", now)).toMatchObject({ category: null, financial: "rotina", amount: 50 });
+  });
+  test("compromisso com valor continua compromisso", () => {
+    expect(classifyInput("Pagar R$ 200 do dentista quarta às 15h", now).category).toBe("compromisso");
+  });
+  test("valor em reais por extenso", () => {
+    expect(classifyInput("Quero juntar 10 mil reais", now)).toMatchObject({ category: "objetivo", financial: "objetivo", amount: 10000 });
+  });
 });
