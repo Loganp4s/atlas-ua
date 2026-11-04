@@ -353,6 +353,8 @@ export function classifyInput(raw: string, now = new Date()): Interpretation {
     if (!target || isOwnAccountWord(target)) {
       return { category: null, title, date, financial: "intencao", amount, confidence: 0.6 };
     }
+    // Saving with a purpose ("guardar R$ 500 para a viagem") is an objective.
+    return { category: "objetivo", title, financial: "objetivo", amount, confidence: 0.8 };
   }
 
   // Rotina / Hábito: recurrence keywords, habit verbs without a date/time,
