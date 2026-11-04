@@ -241,6 +241,13 @@ function describe(text: string): string {
   return t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
 }
 
+/** Recovers the original spelling (accents, capitals) of a normalized fragment. */
+function original(fragment: string | undefined, text: string): string | undefined {
+  if (!fragment) return undefined;
+  const idx = normalize(text).indexOf(fragment);
+  return idx >= 0 ? text.slice(idx, idx + fragment.length) : fragment;
+}
+
 /* ---------------- main ---------------- */
 
 /**
@@ -280,14 +287,14 @@ export function detectFinance(raw: string, now = new Date()): FinanceIntent | nu
   }
 
   if (SAQUE_RE.test(n)) return { kind: "saque", ...base };
-  if (DEPOSIT_OWN_RE.test(n)) return { kind: "transferencia", ...base, target: extractTarget(n) };
+  if (DEPOSIT_OWN_RE.test(n)) return { kind: "transferencia", ...base, target: original(extractTarget(n), text) };
   if (INVEST_DONE_RE.test(n) && (amount || /\b(cdb|tesouro|acoes|fundo|cripto|bitcoin)\b/.test(n))) {
     return { kind: "investimento", ...base };
   }
 
   if (TRANSFER_RE.test(n) && amount) {
-    const target = extractTarget(n);
-    const source = extractSource(n);
+    const target = original(extractTarget(n), text);
+    const source = original(extractSource(n), text);
     if (/\bentre\s+minhas\s+contas\b|\btransferencia\s+interna\b/.test(n) || isOwnAccountWord(target) || (source && isOwnAccountWord(source) && isOwnAccountWord(target))) {
       return { kind: "transferencia", ...base, target, source };
     }
@@ -297,7 +304,7 @@ export function detectFinance(raw: string, now = new Date()): FinanceIntent | nu
 
   const futurePay = FUTURE_PAY_RE.test(n);
   if (OUT_DONE_RE.test(n) && !futurePay && (amount || BILL_RE.test(n) || OUT_NOUN_RE.test(n))) {
-    return { kind: "saida", ...base, target: extractTarget(n) };
+    return { kind: "saida", ...base, target: original(extractTarget(n), text) };
   }
 
   if (IN_DONE_RE.test(n) && (amount || IN_NOUN_RE.test(n))) {
@@ -311,7 +318,7 @@ export function detectFinance(raw: string, now = new Date()): FinanceIntent | nu
   if (futurePay || DEBT_RE.test(n) || DEBT_AMOUNT_RE.test(n) || (BILL_RE.test(n) && !/^(pagar|quitar)\b/.test(n))) {
     // Obrigações pendentes. Infinitivos ("Pagar a fatura") seguem como tarefa.
     if (futurePay || amount || date || DEBT_RE.test(n) || /\bvence|vencimento|atrasad/.test(n)) {
-      const target = extractTarget(n);
+      const target = original(extractTarget(n), text);
       const isDebt = DEBT_RE.test(n) || DEBT_AMOUNT_RE.test(n);
       const description = isDebt && target
         ? `Dívida com ${target.charAt(0).toUpperCase()}${target.slice(1)}`

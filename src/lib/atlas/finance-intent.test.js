@@ -37,7 +37,7 @@ describe("Interpretação financeira do Atlas", () => {
     expect(fin("Mandei 50 pro Nubank").finance.kind).toBe("transferencia");
   });
   test("7. Pix para outra pessoa não é presumido como transferência própria", () => {
-    expect(fin("Fiz um Pix de R$ 50 para a Maria").finance).toMatchObject({ kind: "saida", amount: 50, target: "maria" });
+    expect(fin("Fiz um Pix de R$ 50 para a Maria").finance).toMatchObject({ kind: "saida", amount: 50, target: "Maria" });
   });
   test("8. saque não é despesa", () => {
     expect(fin("Saquei R$ 200 no caixa").finance.kind).toBe("saque");
