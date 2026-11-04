@@ -1,5 +1,6 @@
 import type { RoutineFrequency, Weekday } from "./types";
 import { cleanEventTitle, parseTemporal } from "./temporal";
+import { detectFinance, extractTarget, isOwnAccountWord, type FinanceIntent } from "./finance-intent";
 
 export type IntentCategory =
   | "prioridade"
@@ -25,7 +26,13 @@ export interface Interpretation {
   /** Short auto-generated purpose (for rotina/objetivo) */
   goal?: string;
   /** Financial intent detected in the text (never a real transaction) */
-  financial?: "acao" | "objetivo" | "rotina";
+  financial?: "acao" | "objetivo" | "rotina" | "intencao";
+  /**
+   * Money movement, bill or question detected in the text. When present the
+   * Composer must show a confirmation (or an answer) — never save silently.
+   * `category` stays null so legacy consumers keep working.
+   */
+  finance?: FinanceIntent;
   /** Monetary amount in BRL, when mentioned */
   amount?: number;
   /** Confidence 0-1 (for internal tuning, not shown to user) */
@@ -304,6 +311,13 @@ export function classifyInput(raw: string, now = new Date()): Interpretation {
     return { category: "nota", title: cleanTitle(stripped || text), confidence: 0.9 };
   }
 
+  // Financial movements, bills and questions are routed to Finanças with an
+  // explicit confirmation; they are never saved as tasks or notes.
+  const finance = detectFinance(text, now);
+  if (finance) {
+    return { category: null, title: cleanTitle(text), date: finance.date, finance, amount: finance.amount, confidence: 0.85 };
+  }
+
   const temporal = parseTemporal(text, now);
   const time = temporal.time;
   const date = temporal.date ?? extractDate(text, now);
@@ -330,6 +344,17 @@ export function classifyInput(raw: string, now = new Date()): Interpretation {
   // between a habit and a recurring savings goal — ask instead of guessing.
   if (isFinancial && hasRoutineHint) {
     return { category: null, title, financial: "rotina", amount, confidence: 0.6 };
+  }
+
+  // "Quero guardar R$ 50 no PicPay": an intention, not a done movement and
+  // not an expense. Without a clear purpose, ask how to follow it up.
+  if (isFinancial && /^(quero|vou|pretendo|gostaria\s+de|preciso)\s+(guardar|separar|reservar|investir|aplicar|poupar)\b/.test(lower)) {
+    const target = extractTarget(lower);
+    if (!target || isOwnAccountWord(target)) {
+      return { category: null, title, date, financial: "intencao", amount, confidence: 0.6 };
+    }
+    // Saving with a purpose ("guardar R$ 500 para a viagem") is an objective.
+    return { category: "objetivo", title, financial: "objetivo", amount, confidence: 0.8 };
   }
 
   // Rotina / Hábito: recurrence keywords, habit verbs without a date/time,
