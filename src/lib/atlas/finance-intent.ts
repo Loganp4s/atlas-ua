@@ -77,6 +77,11 @@ const OWN_ACCOUNT_WORDS = [
   "minha conta", "minhas contas", "outra conta", "conta corrente", "corretora",
 ];
 
+const OWN_ACCOUNT_PHRASE_RE = new RegExp(
+  String.raw`\s*\b(?:no|na|pro|pra|para\s+o|para\s+a|pelo|pela|via)\s+(?:${OWN_ACCOUNT_WORDS.filter((w) => w.length > 2 && !w.includes("conta")).sort((a, b) => b.length - a.length).join("|")})\b`,
+  "gi",
+);
+
 export function isOwnAccountWord(word: string | undefined): boolean {
   if (!word) return false;
   const w = normalize(word).replace(/^(o|a|meu|minha)\s+/, "").trim();
@@ -127,7 +132,9 @@ export function parseAmount(text: string): { value: number; explicit: boolean } 
       return { value: v, explicit: true };
     }
   }
-  const bare = /(?:^|\s)(\d[\d.,]*)(?=\s|$|[.!?])/.exec(n);
+  // Bare numbers only in money-like positions ("pingou 200 na conta",
+  // "grana de 150"), never before nouns ("recebi 3 mensagens").
+  const bare = /(?:^|\s)(\d[\d.,]*)(?=\s*$|[.!?,]|\s+(?:na|no|nas|nos|em|de|do|da|pro|pra|para|hoje|ontem|agora|via|por)\b)/.exec(n);
   if (bare) {
     const v = toNumber(bare[1].replace(/[.,]$/, ""));
     if (v) return { value: v, explicit: false };
@@ -156,7 +163,9 @@ const OUT_DONE_RE = /\b(paguei|pagei|gastei|comprei|desembolsei|quitei|quite|deb
 const IN_DONE_RE = /\b(recebi|recebemos|caiu|cairam|entrou|entraram|ganhei|faturei|vendi|pingou|pingaram)\b/;
 const IN_INFORMAL_RE = /\bfiz\b/; // "fiz 100 pila hoje" — only with explicit currency
 const IN_NOUN_RE = /\b(salario|comissao|gorjeta|reembolso|pix\s+recebido|deposito\s+recebido|rendimento|recebimento)\b/;
-const OUT_NOUN_RE = /\b(despesa|conta\s+paga|parcela\s+paga|pix\s+enviado|assinatura)\b/;
+const OUT_NOUN_RE = /\b(despesa|conta\s+paga|parcela\s+paga|pix\s+enviado)\b/;
+/** Infinitive opening ("Cobrar…", "Renovar…") = reminder, never a done movement. */
+const STARTS_INFINITIVE_RE = /^[a-z]+(?:ar|er|ir)\b/;
 const FUTURE_IN_RE = /\b(vou\s+receber|vamos\s+receber|vai\s+cair|vai\s+entrar|a\s+receber|vou\s+ganhar|devo\s+receber|vao\s+me\s+pagar|vai\s+me\s+pagar|tenho\s+(?:que|pra|para)\s+receber)\b/;
 const WANT_IN_RE = /\b(quero|queria|gostaria\s+de)\s+(receber|ganhar)\b/;
 const FUTURE_PAY_RE = /\b(vou\s+pagar|preciso\s+pagar|tenho\s+(?:que|de)\s+pagar|preciso\s+quitar|tenho\s+uma\s+(?:parcela|prestacao|conta|fatura)|tenho\s+um\s+boleto)\b/;
@@ -218,6 +227,9 @@ function describe(text: string): string {
   const lead = LEAD_VERBS.exec(plain);
   if (lead) t = t.slice(lead[0].length);
   t = t
+    .replace(/\s*\b(?:que\s+)?(?:vence|vencimento)\b.*$/i, "")
+    .replace(OWN_ACCOUNT_PHRASE_RE, " ")
+    .replace(/\b(?:em\s+)?\d{1,2}\s*x\b|\bem\s+\d{1,2}\s+(?:vezes|parcelas)\b/gi, " ")
     .replace(/r\s?\$\s*\d[\d.,]*/gi, " ")
     .replace(/\b\d[\d.,]*\s*(?:mil|k|reais|real|contos?|pilas?|paus?)\b/gi, " ")
     .replace(/\b(?:hoje|ontem|anteontem|amanhã|amanha)\b/gi, " ")
@@ -304,7 +316,7 @@ export function detectFinance(raw: string, now = new Date()): FinanceIntent | nu
     }
   }
 
-  if (amount && explicit && !futurePay) {
+  if (amount && explicit && !futurePay && !STARTS_INFINITIVE_RE.test(n)) {
     if (IN_NOUN_RE.test(n)) {
       const refund = /\breembolso\b/.test(n);
       return { kind: "entrada", ...base, ...(refund ? { refund, category: "Reembolso" } : {}) };
