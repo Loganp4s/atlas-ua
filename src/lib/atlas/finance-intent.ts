@@ -208,7 +208,7 @@ function inferDate(text: string, n: string, now: Date): string | undefined {
   return undefined;
 }
 
-function extractTarget(n: string): string | undefined {
+export function extractTarget(n: string): string | undefined {
   const m = /\b(?:para|pra|pro|pros|pras)\s+(?:o\s+|a\s+|os\s+|as\s+|meu\s+|minha\s+)?([a-z0-9][a-z0-9 ]{0,30}?)(?=\s+(?:hoje|ontem|amanha|agora|no|na|de|do|da|via|pelo|pela|por)\b|[.,!?]|$)/.exec(n);
   return m?.[1]?.trim() || undefined;
 }
