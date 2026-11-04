@@ -5,7 +5,7 @@
 import { computeBalance } from "@/lib/financeiro/api";
 import { formatBRL } from "@/lib/financeiro/format";
 import type { FinAccount, FinGoal, FinTransaction } from "@/lib/financeiro/types";
-import type { FinanceQuery } from "./finance-intent";
+import { normalize, type FinanceQuery } from "./finance-intent";
 
 export interface FinanceSnapshot {
   accounts: FinAccount[];
@@ -24,6 +24,19 @@ export function accountBalance(account: FinAccount, transactions: FinTransaction
   return transactions
     .filter((t) => t.account_id === account.id)
     .reduce((s, t) => s + (t.type === "entrada" ? Number(t.amount) : -Number(t.amount)), Number(account.initial_balance || 0));
+}
+
+/**
+ * Accounts whose name appears as a whole phrase in the text. The Composer
+ * preselects only a single unambiguous match; otherwise it asks.
+ */
+export function matchAccounts(text: string, accounts: FinAccount[]): FinAccount[] {
+  const n = normalize(text);
+  return accounts.filter((a) => {
+    if (a.archived) return false;
+    const name = normalize(a.name).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return name.length > 1 && new RegExp(`(?:^|[^a-z0-9])${name}(?:$|[^a-z0-9])`).test(n);
+  });
 }
 
 export function answerFinanceQuery(query: FinanceQuery, data: FinanceSnapshot, now = new Date()): string {
