@@ -95,8 +95,7 @@ const INSTALLMENT_RE = /\b(\d{1,2})\s*x\b|\bem\s+(\d{1,2})\s+(?:vezes|parcelas)\
 function toNumber(raw: string): number | undefined {
   let n = raw.trim();
   if (/,\d{1,2}$/.test(n)) n = n.replace(/\./g, "").replace(",", ".");
-  else if (/\.\d{1,2}$/.test(n) && !/\.\d{3}/.test(n)) n = n; // 12.50
-  else n = n.replace(/[.,]/g, "");
+  else if (!/^\d+\.\d{1,2}$/.test(n)) n = n.replace(/[.,]/g, ""); // keeps "12.50"
   const v = parseFloat(n);
   return Number.isFinite(v) && v > 0 ? v : undefined;
 }
@@ -312,7 +311,12 @@ export function detectFinance(raw: string, now = new Date()): FinanceIntent | nu
   if (futurePay || DEBT_RE.test(n) || DEBT_AMOUNT_RE.test(n) || (BILL_RE.test(n) && !/^(pagar|quitar)\b/.test(n))) {
     // Obrigações pendentes. Infinitivos ("Pagar a fatura") seguem como tarefa.
     if (futurePay || amount || date || DEBT_RE.test(n) || /\bvence|vencimento|atrasad/.test(n)) {
-      return { kind: "conta", ...base, target: extractTarget(n) };
+      const target = extractTarget(n);
+      const isDebt = DEBT_RE.test(n) || DEBT_AMOUNT_RE.test(n);
+      const description = isDebt && target
+        ? `Dívida com ${target.charAt(0).toUpperCase()}${target.slice(1)}`
+        : base.description.replace(/^(?:Pagar|Quitar)\s+/i, "");
+      return { kind: "conta", ...base, description: description.charAt(0).toUpperCase() + description.slice(1), target };
     }
   }
 
