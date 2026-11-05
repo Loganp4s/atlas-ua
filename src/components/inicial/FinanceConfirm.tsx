@@ -101,7 +101,7 @@ export function FinanceConfirm({
   const when = dateLabel(date);
   const prompt = isBill
     ? `Entendi! É uma conta a pagar${descText} de ${amountText}${when ? `, com vencimento ${when === "hoje" || when === "ontem" ? when : `em ${when}`}` : ""}. Posso adicioná-la em Finanças › Contas?`
-    : `Entendi! ${type === "entrada" ? `Você recebeu ${amountText}` : `Você teve uma saída de ${amountText}`}${descText}. Posso registrar essa ${type}${accountName ? ` em ${accountName}` : ""}${when ? ` com a data de ${when}` : ""}?`;
+    : `Entendi! ${type === "entrada" ? `Você recebeu ${amountText}` : `Você teve uma saída de ${amountText}`}${descText}. Posso registrar essa ${type === "entrada" ? "entrada" : "saída"}${accountName ? ` em ${accountName}` : ""}${when ? ` com a data de ${when}` : ""}?`;
 
   async function submit() {
     if (!(value > 0)) return toast.error("Informe um valor maior que zero.");
@@ -152,7 +152,7 @@ export function FinanceConfirm({
       }
       const where = accountName ? ` (${accountName})` : "";
       const inst = installments ? ` — parcela 1 de ${installments}, ${formatBRL(parcel)}` : "";
-      onDone(`Registrei a ${type} de ${formatBRL(installments ? parcel : value)} em Finanças › Movimentações${where}${inst}.${payBill && pendingMatch ? ` Também marquei "${pendingMatch.name}" como paga.` : ""}`);
+      onDone(`Registrei a ${type === "entrada" ? "entrada" : "saída"} de ${formatBRL(installments ? parcel : value)} em Finanças › Movimentações${where}${inst}.${payBill && pendingMatch ? ` Também marquei "${pendingMatch.name}" como paga.` : ""}`);
     } catch (err) {
       toast.error(
         createdTx.current
