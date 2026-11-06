@@ -1,3 +1,4 @@
+import { readAllPages } from "@/lib/read-all-pages";
 import { supabase } from "@/integrations/supabase/client";
 import type {
   Memory,
@@ -140,12 +141,11 @@ export async function updatePreferences(
 /* ---------------------------- Memories ---------------------------- */
 
 export async function listMemories(): Promise<Memory[]> {
-  const { data, error } = await supabase
+  return readAllPages<Memory>((count) => supabase
     .from("atlas_memories")
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as Memory[];
+    .select("*", { count })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true }));
 }
 
 export async function createMemory(input: {

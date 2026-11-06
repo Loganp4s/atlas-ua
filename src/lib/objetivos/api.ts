@@ -1,3 +1,4 @@
+import { readAllPages } from "@/lib/read-all-pages";
 import { supabase } from "@/integrations/supabase/client";
 import type {
   ObjCategory,
@@ -70,12 +71,11 @@ function normalize(input: ObjectiveInput) {
 }
 
 export async function listObjectives(): Promise<ObjObjective[]> {
-  const { data, error } = await supabase
+  return readAllPages<ObjObjective>((count) => supabase
     .from("obj_objectives")
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as unknown as ObjObjective[];
+    .select("*", { count })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true }));
 }
 
 export async function createObjective(input: ObjectiveInput): Promise<ObjObjective> {
@@ -158,23 +158,21 @@ async function syncStepStatus(before: Awaited<ReturnType<typeof stepContext>>) {
 }
 
 export async function listSteps(objectiveId: string): Promise<ObjStep[]> {
-  const { data, error } = await supabase
+  return readAllPages<ObjStep>((count) => supabase
     .from("obj_steps")
-    .select("*")
+    .select("*", { count })
     .eq("objective_id", objectiveId)
     .order("position", { ascending: true })
-    .order("created_at", { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as unknown as ObjStep[];
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true }));
 }
 
 export async function listAllSteps(): Promise<ObjStep[]> {
-  const { data, error } = await supabase
+  return readAllPages<ObjStep>((count) => supabase
     .from("obj_steps")
-    .select("*")
-    .order("position", { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as unknown as ObjStep[];
+    .select("*", { count })
+    .order("position", { ascending: true })
+    .order("id", { ascending: true }));
 }
 
 export async function createStep(
@@ -242,13 +240,12 @@ export async function deleteStep(id: string): Promise<void> {
 /* ----------------------------- Histórico ----------------------------- */
 
 export async function listHistory(objectiveId: string): Promise<ObjHistoryEntry[]> {
-  const { data, error } = await supabase
+  return readAllPages<ObjHistoryEntry>((count) => supabase
     .from("obj_history")
-    .select("*")
+    .select("*", { count })
     .eq("objective_id", objectiveId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as unknown as ObjHistoryEntry[];
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true }));
 }
 
 export async function logHistory(
