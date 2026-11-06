@@ -71,11 +71,11 @@ function normalize(input: ObjectiveInput) {
 }
 
 export async function listObjectives(): Promise<ObjObjective[]> {
-  return readAllPages<ObjObjective>((count) => supabase
+  return await readAllPages((count) => supabase
     .from("obj_objectives")
     .select("*", { count })
     .order("created_at", { ascending: false })
-    .order("id", { ascending: true }));
+    .order("id", { ascending: true })) as unknown as ObjObjective[];
 }
 
 export async function createObjective(input: ObjectiveInput): Promise<ObjObjective> {
@@ -240,12 +240,12 @@ export async function deleteStep(id: string): Promise<void> {
 /* ----------------------------- Histórico ----------------------------- */
 
 export async function listHistory(objectiveId: string): Promise<ObjHistoryEntry[]> {
-  return readAllPages<ObjHistoryEntry>((count) => supabase
+  return await readAllPages((count) => supabase
     .from("obj_history")
     .select("*", { count })
     .eq("objective_id", objectiveId)
     .order("created_at", { ascending: false })
-    .order("id", { ascending: true }));
+    .order("id", { ascending: true })) as unknown as ObjHistoryEntry[];
 }
 
 export async function logHistory(
