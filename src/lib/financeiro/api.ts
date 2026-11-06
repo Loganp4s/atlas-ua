@@ -1,3 +1,4 @@
+import { readAllPages } from "@/lib/read-all-pages";
 import { supabase as _sb } from "@/integrations/supabase/client";
 import type {
   FinAccount,
@@ -21,12 +22,11 @@ async function uid(): Promise<string> {
 
 /* -------- Accounts -------- */
 export async function listAccounts(): Promise<FinAccount[]> {
-  const { data, error } = await sb
+  return readAllPages<FinAccount>((count) => sb
     .from("fin_accounts")
-    .select("*")
-    .order("created_at", { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as FinAccount[];
+    .select("*", { count })
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true }));
 }
 export interface AccountInput {
   name: string;
@@ -65,13 +65,12 @@ export async function deleteAccount(id: string): Promise<void> {
 
 /* -------- Transactions -------- */
 export async function listTransactions(): Promise<FinTransaction[]> {
-  const { data, error } = await sb
+  return readAllPages<FinTransaction>((count) => sb
     .from("fin_transactions")
-    .select("*")
+    .select("*", { count })
     .order("tx_date", { ascending: false })
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as FinTransaction[];
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true }));
 }
 export interface TransactionInput {
   account_id: string | null;
@@ -116,12 +115,11 @@ export async function deleteTransaction(id: string): Promise<void> {
 
 /* -------- Goals -------- */
 export async function listGoals(): Promise<FinGoal[]> {
-  const { data, error } = await sb
+  return readAllPages<FinGoal>((count) => sb
     .from("fin_goals")
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as FinGoal[];
+    .select("*", { count })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true }));
 }
 export interface GoalInput {
   name: string;
@@ -160,13 +158,12 @@ export async function deleteGoal(id: string): Promise<void> {
 export async function listGoalContributions(
   goalId: string,
 ): Promise<FinGoalContribution[]> {
-  const { data, error } = await sb
+  return readAllPages<FinGoalContribution>((count) => sb
     .from("fin_goal_contributions")
-    .select("*")
+    .select("*", { count })
     .eq("goal_id", goalId)
-    .order("contribution_date", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as FinGoalContribution[];
+    .order("contribution_date", { ascending: false })
+    .order("id", { ascending: true }));
 }
 export async function addGoalContribution(
   goalId: string,
@@ -195,12 +192,11 @@ export async function addGoalContribution(
 
 /* -------- Bills -------- */
 export async function listBills(): Promise<FinBill[]> {
-  const { data, error } = await sb
+  return readAllPages<FinBill>((count) => sb
     .from("fin_bills")
-    .select("*")
-    .order("due_date", { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as FinBill[];
+    .select("*", { count })
+    .order("due_date", { ascending: true })
+    .order("id", { ascending: true }));
 }
 export interface BillInput {
   name: string;

@@ -1,3 +1,4 @@
+import { readAllPages } from "@/lib/read-all-pages";
 import { supabase } from "@/integrations/supabase/client";
 import type {
   RotinaEvent,
@@ -18,15 +19,14 @@ async function requireUid(): Promise<string> {
 /* ---------------------------- Tasks ---------------------------- */
 
 export async function listTasks(): Promise<RotinaTask[]> {
-  const { data, error } = await supabase
+  return readAllPages<RotinaTask>((count) => supabase
     .from("rotina_tasks")
-    .select("*")
+    .select("*", { count })
     .order("done", { ascending: true })
     .order("due_date", { ascending: true, nullsFirst: false })
     .order("due_time", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as RotinaTask[];
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true }));
 }
 
 export interface TaskInput {
@@ -80,13 +80,12 @@ export async function deleteTask(id: string): Promise<void> {
 /* ---------------------------- Events --------------------------- */
 
 export async function listEvents(): Promise<RotinaEvent[]> {
-  const { data, error } = await supabase
+  return readAllPages<RotinaEvent>((count) => supabase
     .from("rotina_events")
-    .select("*")
+    .select("*", { count })
     .order("event_date", { ascending: true })
-    .order("start_time", { ascending: true, nullsFirst: true });
-  if (error) throw error;
-  return (data ?? []) as RotinaEvent[];
+    .order("start_time", { ascending: true, nullsFirst: true })
+    .order("id", { ascending: true }));
 }
 
 export interface EventInput {
@@ -154,21 +153,19 @@ export async function deleteEvent(id: string): Promise<void> {
 /* ---------------------------- Habits --------------------------- */
 
 export async function listHabits(): Promise<RotinaHabit[]> {
-  const { data, error } = await supabase
+  return readAllPages<RotinaHabit>((count) => supabase
     .from("rotina_habits")
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as RotinaHabit[];
+    .select("*", { count })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true }));
 }
 
 export async function listHabitLogs(): Promise<RotinaHabitLog[]> {
-  const { data, error } = await supabase
+  return readAllPages<RotinaHabitLog>((count) => supabase
     .from("rotina_habit_logs")
-    .select("*")
-    .order("log_date", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as RotinaHabitLog[];
+    .select("*", { count })
+    .order("log_date", { ascending: false })
+    .order("id", { ascending: true }));
 }
 
 export interface HabitInput {
@@ -239,13 +236,12 @@ export async function unmarkHabit(habitId: string, date: string): Promise<void> 
 /* ---------------------------- Notes ---------------------------- */
 
 export async function listNotes(): Promise<RotinaNote[]> {
-  const { data, error } = await supabase
+  return readAllPages<RotinaNote>((count) => supabase
     .from("rotina_notes")
-    .select("*")
+    .select("*", { count })
     .order("pinned", { ascending: false })
-    .order("updated_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as RotinaNote[];
+    .order("updated_at", { ascending: false })
+    .order("id", { ascending: true }));
 }
 
 export interface NoteInput {
