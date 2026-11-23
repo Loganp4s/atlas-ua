@@ -2,7 +2,7 @@
  * Respostas determinísticas para perguntas financeiras feitas ao Atlas.
  * Usa somente o que o usuário registrou em Finanças; nunca inventa valores.
  */
-import { computeBalance } from "@/lib/financeiro/api";
+import { computeBalanceBreakdown } from "@/lib/financeiro/api";
 import { formatBRL } from "@/lib/financeiro/format";
 import type { FinAccount, FinGoal, FinTransaction } from "@/lib/financeiro/types";
 import { normalize, type FinanceQuery } from "./finance-intent";
@@ -49,7 +49,15 @@ export function answerFinanceQuery(query: FinanceQuery, data: FinanceSnapshot, n
       if (accounts.length === 0 && transactions.length === 0) {
         return "Você ainda não cadastrou contas nem movimentações em Finanças, então ainda não sei seu saldo.";
       }
-      return `Seu saldo registrado é ${formatBRL(computeBalance(accounts, transactions))}. ${SOURCE_NOTE}`;
+      const bd = computeBalanceBreakdown(accounts, transactions);
+      const extras: string[] = [];
+      if (bd.archived.accountCount > 0) extras.push(`contas arquivadas: ${formatBRL(bd.archived.balance)}`);
+      if (bd.unassigned.transactionCount > 0) extras.push(`movimentações sem conta: ${formatBRL(bd.unassigned.balance)}`);
+      const head = bd.active.accountCount > 0
+        ? `O saldo das suas contas ativas é ${formatBRL(bd.active.balance)}.`
+        : "Você não tem contas ativas em Finanças.";
+      const tail = extras.length > 0 ? ` Fora desse saldo: ${extras.join("; ")}.` : "";
+      return `${head}${tail} ${SOURCE_NOTE}`;
     }
     case "conta_maior": {
       const active = accounts.filter((a) => !a.archived);

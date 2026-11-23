@@ -1,6 +1,6 @@
 import type { HomeData } from "./useHomeData";
 import { computeProgress } from "@/lib/objetivos/meta";
-import { computeBalance } from "@/lib/financeiro/api";
+import { computeBalanceBreakdown } from "@/lib/financeiro/api";
 import { formatBRL } from "@/lib/financeiro/format";
 import { currentStreak, todayYmd } from "@/lib/rotina/streak";
 import { coversDate, eventEndDate, periodLabel } from "@/lib/rotina/events";
@@ -168,14 +168,17 @@ export function worldCards(data: HomeData): WorldCard[] {
   /* Financeiro */
   const hasFinance = data.accounts.length > 0 || data.transactions.length > 0;
   if (hasFinance) {
-    const balance = computeBalance(data.accounts, data.transactions);
+    const bd = computeBalanceBreakdown(data.accounts, data.transactions);
     const pending = data.bills.filter((b) => b.status === "pendente").length;
+    const hasActive = bd.active.accountCount > 0;
     cards.push({
       key: "financeiro",
-      label: "Financeiro",
-      primary: formatBRL(balance),
+      label: hasActive ? "Financeiro · contas ativas" : "Financeiro",
+      primary: hasActive ? formatBRL(bd.active.balance) : "Sem contas ativas",
       secondary:
-        pending > 0
+        !hasActive
+          ? `registros: ${formatBRL(bd.consolidated)}`
+          : pending > 0
           ? `${pending} ${pending === 1 ? "conta a pagar" : "contas a pagar"}`
           : "nada pendente por aqui",
       to: "/financeiro",

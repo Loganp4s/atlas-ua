@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownRight, ArrowUpRight, PiggyBank, Sparkles, Wallet } from "lucide-react";
 import {
-  computeBalance,
+  computeBalanceBreakdown,
   listAccounts,
   listBills,
   listTransactions,
@@ -31,7 +31,7 @@ export function ResumoTab() {
       .filter((t) => t.type === "saida")
       .reduce((s, t) => s + Number(t.amount), 0);
     return {
-      balance: computeBalance(accounts, tx),
+      breakdown: computeBalanceBreakdown(accounts, tx),
       receitas,
       despesas,
       economia: receitas - despesas,
@@ -50,10 +50,31 @@ export function ResumoTab() {
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        <p className="text-xs text-muted-foreground">Saldo consolidado</p>
+        <p className="text-xs text-muted-foreground">Saldo das contas ativas</p>
         <p className="mt-1 font-display text-3xl font-medium text-foreground">
-          {formatBRL(stats.balance)}
+          {formatBRL(stats.breakdown.active.balance)}
         </p>
+        {(stats.breakdown.archived.accountCount > 0 || stats.breakdown.unassigned.transactionCount > 0) && (
+          <dl className="mt-3 flex flex-col gap-1 text-xs text-muted-foreground">
+            {stats.breakdown.archived.accountCount > 0 && (
+              <div className="flex justify-between gap-2">
+                <dt>Contas arquivadas</dt>
+                <dd className="text-foreground">{formatBRL(stats.breakdown.archived.balance)}</dd>
+              </div>
+            )}
+            {stats.breakdown.unassigned.transactionCount > 0 && (
+              <div className="flex justify-between gap-2">
+                <dt>Movimentações sem conta</dt>
+                <dd className="text-foreground">{formatBRL(stats.breakdown.unassigned.balance)}</dd>
+              </div>
+            )}
+            <div className="flex justify-between gap-2 border-t border-border/70 pt-1">
+              <dt>Total dos registros</dt>
+              <dd className="text-foreground">{formatBRL(stats.breakdown.consolidated)}</dd>
+            </div>
+            <p className="text-[11px]">O total soma todos os registros e não é dinheiro disponível nas contas ativas.</p>
+          </dl>
+        )}
         <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
           <MiniStat
             label="Receitas"

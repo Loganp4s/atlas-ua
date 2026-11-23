@@ -14,3 +14,4 @@
 - Financial suggestions reuse GoalDialog and the authenticated createGoal/updateObjective APIs with the Finance goal query key; retain a newly created goal for link retries to avoid duplicate creation.
 - The Atlas Composer routes money through `detectFinance` with a confirmation card that writes only via the existing Finance APIs; transfers, withdrawals and investments are explained and never recorded until the data model supports them, so reports never count them as income/expense.
 - Collection readers use the shared exhaustive range reader with existing filters and a unique final sort key; keep arrays complete so cached lists and calculations never silently inherit the Data API row cap.
+- Finance balances come from `computeBalanceBreakdown` (active, archived, unassigned buckets; consolidated = their sum); show the active-account balance as available money so archived accounts and account-less transactions are never mixed in silently.

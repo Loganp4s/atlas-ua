@@ -12,6 +12,7 @@ import {
 } from "@/lib/financeiro/api";
 import type { FinAccount } from "@/lib/financeiro/types";
 import { formatBRL } from "@/lib/financeiro/format";
+import { accountBalance } from "@/lib/atlas/finance-query";
 import { EmptyState } from "@/components/atlas/AppShell";
 import { Button } from "@/components/ui/button";
 import {
@@ -80,12 +81,7 @@ export function AccountsSection() {
   });
 
   function balanceOf(a: FinAccount) {
-    return tx
-      .filter((t) => t.account_id === a.id)
-      .reduce(
-        (s, t) => s + (t.type === "entrada" ? Number(t.amount) : -Number(t.amount)),
-        Number(a.initial_balance || 0),
-      );
+    return accountBalance(a, tx);
   }
 
   async function handleDelete(a: FinAccount) {

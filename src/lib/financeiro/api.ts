@@ -243,16 +243,81 @@ export async function deleteBill(id: string): Promise<void> {
   if (error) throw error;
 }
 
-/* -------- Balance helper -------- */
+/* -------- Balance helpers -------- */
+export interface BalanceBucket {
+  /** Soma dos saldos iniciais das contas do grupo. */
+  initial: number;
+  entradas: number;
+  saidas: number;
+  /** initial + entradas - saidas */
+  balance: number;
+  accountCount: number;
+  transactionCount: number;
+}
+
+/**
+ * Separação do saldo registrado. Cada movimentação entra em exatamente um
+ * grupo: conta ativa, conta arquivada ou sem conta (account_id nulo ou de uma
+ * conta que não existe mais). `consolidated` = active + archived + unassigned
+ * e representa o total dos registros, não dinheiro disponível.
+ */
+export interface BalanceBreakdown {
+  active: BalanceBucket;
+  archived: BalanceBucket;
+  /** Movimentações sem conta; `initial` e `accountCount` são sempre 0. */
+  unassigned: BalanceBucket;
+  consolidated: number;
+}
+
+function emptyBucket(): BalanceBucket {
+  return { initial: 0, entradas: 0, saidas: 0, balance: 0, accountCount: 0, transactionCount: 0 };
+}
+
+export function computeBalanceBreakdown(
+  accounts: FinAccount[],
+  transactions: FinTransaction[],
+): BalanceBreakdown {
+  const active = emptyBucket();
+  const archived = emptyBucket();
+  const unassigned = emptyBucket();
+  const byId = new Map<string, BalanceBucket>();
+  for (const a of accounts) {
+    const b = a.archived ? archived : active;
+    b.initial += Number(a.initial_balance || 0);
+    b.accountCount += 1;
+    byId.set(a.id, b);
+  }
+  for (const t of transactions) {
+    const b = (t.account_id && byId.get(t.account_id)) || unassigned;
+    const v = Number(t.amount) || 0;
+    if (t.type === "entrada") b.entradas += v;
+    else b.saidas += v;
+    b.transactionCount += 1;
+  }
+  for (const b of [active, archived, unassigned]) b.balance = b.initial + b.entradas - b.saidas;
+  return {
+    active,
+    archived,
+    unassigned,
+    consolidated: active.balance + archived.balance + unassigned.balance,
+  };
+}
+
+/** Saldo das contas ativas: dinheiro registrado nas contas em uso. */
+export function computeActiveBalance(
+  accounts: FinAccount[],
+  transactions: FinTransaction[],
+): number {
+  return computeBalanceBreakdown(accounts, transactions).active.balance;
+}
+
+/**
+ * Total consolidado de todos os registros (ativas + arquivadas + sem conta).
+ * Mantido por compatibilidade; não representa dinheiro disponível.
+ */
 export function computeBalance(
   accounts: FinAccount[],
   transactions: FinTransaction[],
 ): number {
-  const base = accounts.reduce((s, a) => s + Number(a.initial_balance || 0), 0);
-  const net = transactions.reduce(
-    (s, t) =>
-      s + (t.type === "entrada" ? Number(t.amount) : -Number(t.amount)),
-    0,
-  );
-  return base + net;
+  return computeBalanceBreakdown(accounts, transactions).consolidated;
 }
