@@ -16,9 +16,12 @@ import {
   createTransaction,
   deleteTransaction,
   listAccounts,
+  listInstallmentPlans,
+  listInstallments,
   listTransactions,
   updateTransaction,
   type AccountInput,
+  type InstallmentPlanInput,
   type TransactionInput,
 } from "@/lib/financeiro/api";
 import type { FinTransaction, FinTxType } from "@/lib/financeiro/types";
@@ -35,6 +38,9 @@ import {
 import { TransactionDialog } from "./TransactionDialog";
 import { AccountDialog } from "./AccountDialog";
 import { confirmDelete, LoadError } from "@/components/atlas/ConfirmHost";
+import { InstallmentsSection } from "./InstallmentsSection";
+import { useAuthUser } from "@/components/rotina/useAuthUser";
+import { INSTALLMENT_KEYS, dbErrorMessage, submitInstallmentPlan } from "@/lib/financeiro/installment-actions";
 
 type Filter = "all" | FinTxType;
 
@@ -42,6 +48,12 @@ export function MovimentacoesTab() {
   const qc = useQueryClient();
   const accountsQ = useQuery({ queryKey: ["fin", "accounts"], queryFn: listAccounts });
   const txQ = useQuery({ queryKey: ["fin", "tx"], queryFn: listTransactions });
+  const plansQ = useQuery({ queryKey: INSTALLMENT_KEYS.plans, queryFn: listInstallmentPlans });
+  const instQ = useQuery({ queryKey: INSTALLMENT_KEYS.items, queryFn: listInstallments });
+  const auth = useAuthUser();
+  const [openPlanId, setOpenPlanId] = useState<string | null>(null);
+  const plans = plansQ.data ?? [];
+  const linkedTx = useMemo(() => new Map((instQ.data ?? []).filter((i) => i.transaction_id).map((i) => [i.transaction_id as string, i.plan_id])), [instQ.data]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [editing, setEditing] = useState<FinTransaction | null>(null);
@@ -116,6 +128,17 @@ export function MovimentacoesTab() {
     setDialogOpen(true);
   }
 
+  async function handleCreatePlan(input: InstallmentPlanInput) {
+    if (!auth.user) { toast.error("Entre na sua conta para continuar."); throw new Error("auth"); }
+    try {
+      const r = await submitInstallmentPlan(qc, auth.user.id, input);
+      toast.success(r.duplicate ? "Esse parcelamento já estava registrado. Nada foi duplicado." : `Parcelamento criado: ${input.installment_count} parcelas previstas.`);
+    } catch (e) {
+      toast.error(dbErrorMessage(e));
+      throw e;
+    }
+  }
+
   async function handleSubmit(input: TransactionInput) {
     if (editing) await updateMut.mutateAsync({ id: editing.id, input });
     else await createMut.mutateAsync(input);
@@ -172,6 +195,13 @@ export function MovimentacoesTab() {
           );
         })}
       </div>
+
+      {plansQ.isError || instQ.isError ? (
+        <LoadError onRetry={() => { void plansQ.refetch(); void instQ.refetch(); }} />
+      ) : plansQ.isLoading || instQ.isLoading ? null : (
+        <InstallmentsSection plans={plans} installments={instQ.data ?? []} accounts={accounts} userId={auth.user?.id}
+          openPlanId={openPlanId} onOpenPlan={setOpenPlanId} />
+      )}
 
       {txQ.isError ? (
         <LoadError onRetry={() => txQ.refetch()} />
@@ -242,6 +272,11 @@ export function MovimentacoesTab() {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    {linkedTx.has(t.id) ? (
+                      <DropdownMenuItem onClick={() => setOpenPlanId(linkedTx.get(t.id) ?? null)}>
+                        <Pencil className="h-4 w-4" /> Ver parcelamento
+                      </DropdownMenuItem>
+                    ) : (<>
                     <DropdownMenuItem onClick={() => openEdit(t)}>
                       <Pencil className="h-4 w-4" /> Editar
                     </DropdownMenuItem>
@@ -251,6 +286,7 @@ export function MovimentacoesTab() {
                     >
                       <Trash2 className="h-4 w-4" /> Excluir
                     </DropdownMenuItem>
+                    </>)}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </li>
@@ -267,6 +303,8 @@ export function MovimentacoesTab() {
           (a) => !a.archived || a.id === editing?.account_id,
         )}
         onSubmit={handleSubmit}
+        onCreatePlan={handleCreatePlan}
+        userId={auth.user?.id}
       />
       <AccountDialog
         open={accountOpen}

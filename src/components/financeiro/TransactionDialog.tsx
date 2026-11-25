@@ -22,7 +22,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import type { TransactionInput } from "@/lib/financeiro/api";
+import { findInstallmentPlanByRequest, type InstallmentPlanInput, type TransactionInput } from "@/lib/financeiro/api";
+import { InstallmentPreview } from "./InstallmentPreview";
+import { MAX_INSTALLMENTS, validatePlanInput } from "@/lib/financeiro/installments";
+import { discardPendingPlan, readPendingPlan } from "@/lib/financeiro/installment-actions";
+import { readPendingOp } from "@/lib/financeiro/pending-installment";
+import { confirmDelete } from "@/components/atlas/ConfirmHost";
 import type {
   FinAccount,
   FinRecurrence,
@@ -45,12 +50,17 @@ export function TransactionDialog({
   initial,
   accounts,
   onSubmit,
+  onCreatePlan,
+  userId,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   initial?: FinTransaction | null;
   accounts: FinAccount[];
   onSubmit: (input: TransactionInput) => Promise<void>;
+  /** Compra parcelada: cria a série completa (mesma API da Home). */
+  onCreatePlan?: (input: InstallmentPlanInput) => Promise<void>;
+  userId?: string;
 }) {
   const [type, setType] = useState<FinTxType>("saida");
   const [amount, setAmount] = useState("");
@@ -61,8 +71,25 @@ export function TransactionDialog({
   const [installments, setInstallments] = useState("");
   const [accountId, setAccountId] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [pendingPlan, setPendingPlan] = useState(false);
 
   useEffect(() => {
+    if (open && !initial && userId) {
+      const p = readPendingPlan(userId);
+      if (p) {
+        setPendingPlan(true);
+        setType("saida");
+        setAmount(String(p.total_amount));
+        setInstallments(String(p.installment_count));
+        setCategory(p.category ?? "");
+        setDescription(p.description);
+        setDate(isoToDate(p.first_due_date));
+        setAccountId(p.account_id);
+        setRecurrence("none");
+        return;
+      }
+    }
+    setPendingPlan(false);
     if (open) {
       setType(initial?.type ?? "saida");
       setAmount(initial ? String(initial.amount) : "");
@@ -75,28 +102,71 @@ export function TransactionDialog({
     }
   }, [open, initial, accounts]);
 
+  const inst = Number(installments);
+  const isPlan = !initial && type === "saida" && inst > 1 && !!onCreatePlan;
+  const planInput: InstallmentPlanInput | null = isPlan && date ? {
+    account_id: accountId, description: description.trim(), category: category.trim() || null,
+    total_amount: Number(amount), installment_count: inst, first_due_date: dateToIso(date),
+  } : null;
+  const planError = planInput ? validatePlanInput(planInput) : null;
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const v = Number(amount);
     if (!v || v <= 0 || !date) return;
     setSaving(true);
     try {
-      const inst = Number(installments);
-      await onSubmit({
-        account_id: accountId || null,
-        type,
-        amount: v,
-        category: category.trim() || null,
-        description: description.trim() || null,
-        tx_date: dateToIso(date),
-        recurrence,
-        installment_total: inst > 1 ? inst : null,
-        installment_index: inst > 1 ? 1 : null,
-      });
+      if (isPlan) {
+        if (!planInput || planError) return;
+        await onCreatePlan!(planInput);
+        setPendingPlan(false);
+      } else {
+        await onSubmit({
+          account_id: accountId || null,
+          type,
+          amount: v,
+          category: category.trim() || null,
+          description: description.trim() || null,
+          tx_date: dateToIso(date),
+          recurrence,
+          // Edits never rewrite installment fields (legacy rows keep theirs).
+          ...(initial ? {} : { installment_total: null, installment_index: null }),
+        });
+      }
       onOpenChange(false);
+    } catch {
+      // Error already shown by the caller; keep the form filled for a safe retry.
     } finally {
       setSaving(false);
     }
+  }
+
+  async function verifyPending() {
+    if (!userId) return;
+    try {
+      const p = readPendingOp(window.localStorage, "installment-plan", userId, "new");
+      if (!p) { setPendingPlan(false); return; }
+      const found = await findInstallmentPlanByRequest(p.requestId);
+      if (found) {
+        discardPendingPlan(userId);
+        setPendingPlan(false);
+        onOpenChange(false);
+        const { toast } = await import("sonner");
+        toast.success("Esse parcelamento já estava registrado. Nada foi duplicado.");
+      } else {
+        const { toast } = await import("sonner");
+        toast.info("Ainda não encontrei esse parcelamento. Confirme de novo a mesma tentativa — não haverá duplicação.");
+      }
+    } catch (err) {
+      const { toast } = await import("sonner");
+      toast.error(err instanceof Error ? err.message : "Não consegui verificar agora.");
+    }
+  }
+  async function discardPending() {
+    if (!userId) return;
+    if (!(await confirmDelete("Descartar a tentativa pendente?", "Se ela já tiver sido registrada, verifique em Parcelamentos antes de criar outra, para não duplicar.", "Descartar"))) return;
+    discardPendingPlan(userId);
+    setPendingPlan(false);
   }
 
   return (
@@ -115,6 +185,7 @@ export function TransactionDialog({
                 <button
                   key={t}
                   type="button"
+                  disabled={pendingPlan}
                   onClick={() => setType(t)}
                   className={
                     "flex-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors " +
@@ -132,7 +203,7 @@ export function TransactionDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="t-amount">Valor (R$)</Label>
+              <Label htmlFor="t-amount">{isPlan ? "Valor total (R$)" : "Valor (R$)"}</Label>
               <Input
                 id="t-amount"
                 type="number"
@@ -140,17 +211,19 @@ export function TransactionDialog({
                 min="0"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
+                disabled={pendingPlan}
                 required
                 autoFocus
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label>Data</Label>
+              <Label>{isPlan ? "1º vencimento" : "Data"}</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     type="button"
                     variant="outline"
+                    disabled={pendingPlan}
                     className={cn(
                       "justify-start text-left font-normal",
                       !date && "text-muted-foreground",
@@ -174,7 +247,7 @@ export function TransactionDialog({
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>Conta</Label>
-            <Select value={accountId} onValueChange={setAccountId}>
+            <Select value={accountId} onValueChange={setAccountId} disabled={pendingPlan}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione..." />
               </SelectTrigger>
@@ -193,6 +266,7 @@ export function TransactionDialog({
               id="t-cat"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
+                disabled={pendingPlan}
               placeholder="Ex: alimentação, transporte..."
             />
           </div>
@@ -202,10 +276,12 @@ export function TransactionDialog({
               id="t-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+                disabled={pendingPlan}
               rows={2}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
+            {!isPlan ? (
             <div className="flex flex-col gap-1.5">
               <Label>Recorrência</Label>
               <Select
@@ -224,18 +300,42 @@ export function TransactionDialog({
                 </SelectContent>
               </Select>
             </div>
+            ) : null}
+            {!initial && type === "saida" && onCreatePlan ? (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="t-inst">Parcelas</Label>
               <Input
                 id="t-inst"
                 type="number"
                 min="1"
+                max={MAX_INSTALLMENTS}
+                step="1"
                 value={installments}
+                disabled={pendingPlan}
                 onChange={(e) => setInstallments(e.target.value)}
                 placeholder="1"
               />
             </div>
+            ) : null}
           </div>
+          {initial?.installment_total ? (
+            <p className="text-xs text-muted-foreground">
+              Registro antigo marcado como parcela {initial.installment_index}/{initial.installment_total}. Essa marcação é preservada.
+            </p>
+          ) : null}
+          {isPlan && date ? (
+            <InstallmentPreview total={Number(amount)} count={inst} first={dateToIso(date)} />
+          ) : null}
+          {isPlan && planError && Number(amount) > 0 ? <p className="text-xs text-destructive">{planError}</p> : null}
+          {pendingPlan ? (
+            <div className="rounded-xl border border-border bg-secondary/50 p-3 text-xs text-foreground">
+              Há um parcelamento enviado sem confirmação do banco. Confirme de novo para concluir — a mesma tentativa nunca duplica.
+              <div className="mt-2 flex gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={() => void verifyPending()}>Verificar</Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => void discardPending()}>Descartar</Button>
+              </div>
+            </div>
+          ) : null}
           <DialogFooter className="mt-2">
             <Button
               type="button"
@@ -245,8 +345,8 @@ export function TransactionDialog({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={saving || !Number(amount)}>
-              {saving ? "Salvando..." : "Salvar"}
+            <Button type="submit" disabled={saving || !Number(amount) || (isPlan && !!planError)}>
+              {saving ? "Salvando..." : isPlan ? `Criar ${inst} parcelas` : "Salvar"}
             </Button>
           </DialogFooter>
         </form>

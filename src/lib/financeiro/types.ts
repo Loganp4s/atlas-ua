@@ -94,3 +94,39 @@ export interface FinTransfer {
   client_request_id: string | null;
   created_at: string;
 }
+
+export type FinInstallmentPlanStatus = "ativo" | "concluido" | "cancelado";
+export type FinInstallmentStatus = "aberta" | "paga" | "cancelada";
+/** Compra parcelada (compromisso). As parcelas abertas não são movimentações. */
+export interface FinInstallmentPlan {
+  id: string;
+  user_id: string;
+  account_id: string | null;
+  description: string;
+  category: string | null;
+  total_amount: number;
+  installment_count: number;
+  first_due_date: string;
+  status: FinInstallmentPlanStatus;
+  client_request_id: string;
+  cancelled_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface FinInstallment {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  number: number;
+  amount: number;
+  due_date: string;
+  status: FinInstallmentStatus;
+  /** Data efetiva do pagamento (diferente do vencimento). */
+  paid_at: string | null;
+  paid_account_id: string | null;
+  transaction_id: string | null;
+  pay_request_id: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+  updated_at: string;
+}

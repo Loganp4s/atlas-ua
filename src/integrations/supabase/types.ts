@@ -259,6 +259,135 @@ export type Database = {
         }
         Relationships: []
       }
+      fin_installment_plans: {
+        Row: {
+          account_id: string | null
+          cancelled_at: string | null
+          category: string | null
+          client_request_id: string
+          created_at: string
+          description: string
+          first_due_date: string
+          id: string
+          installment_count: number
+          status: string
+          total_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          cancelled_at?: string | null
+          category?: string | null
+          client_request_id: string
+          created_at?: string
+          description: string
+          first_due_date: string
+          id?: string
+          installment_count: number
+          status?: string
+          total_amount: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          cancelled_at?: string | null
+          category?: string | null
+          client_request_id?: string
+          created_at?: string
+          description?: string
+          first_due_date?: string
+          id?: string
+          installment_count?: number
+          status?: string
+          total_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_installment_plans_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_installments: {
+        Row: {
+          amount: number
+          cancelled_at: string | null
+          created_at: string
+          due_date: string
+          id: string
+          number: number
+          paid_account_id: string | null
+          paid_at: string | null
+          pay_request_id: string | null
+          plan_id: string
+          status: string
+          transaction_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          cancelled_at?: string | null
+          created_at?: string
+          due_date: string
+          id?: string
+          number: number
+          paid_account_id?: string | null
+          paid_at?: string | null
+          pay_request_id?: string | null
+          plan_id: string
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          cancelled_at?: string | null
+          created_at?: string
+          due_date?: string
+          id?: string
+          number?: number
+          paid_account_id?: string | null
+          paid_at?: string | null
+          pay_request_id?: string | null
+          plan_id?: string
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_installments_paid_account_id_fkey"
+            columns: ["paid_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_installments_plan_fk"
+            columns: ["plan_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fin_installment_plans"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "fin_installments_tx_fk"
+            columns: ["transaction_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fin_transactions"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       fin_objectives: {
         Row: {
           created_at: string
@@ -863,6 +992,22 @@ export type Database = {
         }
         Returns: Json
       }
+      cancel_fin_installment_plan: {
+        Args: { p_confirm_overdue: boolean; p_plan_id: string; p_today: string }
+        Returns: Json
+      }
+      create_fin_installment_plan: {
+        Args: {
+          p_account_id: string
+          p_category: string
+          p_count: number
+          p_description: string
+          p_first_due: string
+          p_request_id: string
+          p_total: number
+        }
+        Returns: Json
+      }
       create_fin_transfer: {
         Args: {
           p_amount: number
@@ -871,6 +1016,35 @@ export type Database = {
           p_request_id?: string
           p_source_account_id: string
           p_transfer_date: string
+        }
+        Returns: Json
+      }
+      fin_installment_due_date: {
+        Args: { p_first: string; p_number: number }
+        Returns: string
+      }
+      fin_validate_installment_amount: {
+        Args: { p_count: number; p_total: number }
+        Returns: undefined
+      }
+      pay_fin_installment: {
+        Args: {
+          p_account_id: string
+          p_installment_id: string
+          p_paid_date: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      update_fin_installment_plan: {
+        Args: {
+          p_account_id: string
+          p_category: string
+          p_count: number
+          p_description: string
+          p_first_due: string
+          p_plan_id: string
+          p_total: number
         }
         Returns: Json
       }

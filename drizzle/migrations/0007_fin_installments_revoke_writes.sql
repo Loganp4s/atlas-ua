@@ -1,0 +1,2 @@
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.fin_installment_plans, public.fin_installments FROM authenticated, anon;
+REVOKE SELECT ON public.fin_installment_plans, public.fin_installments FROM anon;

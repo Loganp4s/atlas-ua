@@ -6,6 +6,8 @@ import type {
   FinBillStatus,
   FinGoal,
   FinGoalContribution,
+  FinInstallment,
+  FinInstallmentPlan,
   FinRecurrence,
   FinTransaction,
   FinTransfer,
@@ -155,6 +157,80 @@ export async function createTransfer(input: TransferInput, requestId: string, ex
   if (error) throw error;
   if (!data || typeof data.transfer_id !== "string") throw new Error("Resposta inesperada ao confirmar a transferência.");
   return data as TransferResult;
+}
+
+/* -------- Installment plans (compromissos) -------- */
+export async function listInstallmentPlans(): Promise<FinInstallmentPlan[]> {
+  return readAllPages<FinInstallmentPlan>((count) => sb
+    .from("fin_installment_plans")
+    .select("*", { count })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true }));
+}
+export async function listInstallments(): Promise<FinInstallment[]> {
+  return readAllPages<FinInstallment>((count) => sb
+    .from("fin_installments")
+    .select("*", { count })
+    .order("due_date", { ascending: true })
+    .order("number", { ascending: true })
+    .order("id", { ascending: true }));
+}
+export interface InstallmentPlanInput {
+  account_id: string;
+  description: string;
+  category: string | null;
+  total_amount: number;
+  installment_count: number;
+  first_due_date: string;
+}
+/** Única forma de criar parcelamentos (Finanças e Home): RPC atômica e idempotente. */
+export async function createInstallmentPlan(input: InstallmentPlanInput, requestId: string, expectedUserId?: string): Promise<{ plan_id: string; duplicate: boolean }> {
+  const userId = await uid();
+  if (expectedUserId && userId !== expectedUserId) throw new Error("A sessão mudou. Entre na conta deste parcelamento para confirmá-lo.");
+  const { data, error } = await sb.rpc("create_fin_installment_plan", {
+    p_account_id: input.account_id,
+    p_description: input.description,
+    p_category: input.category,
+    p_total: input.total_amount,
+    p_count: input.installment_count,
+    p_first_due: input.first_due_date,
+    p_request_id: requestId,
+  });
+  if (error) throw error;
+  if (!data || typeof data.plan_id !== "string") throw new Error("Resposta inesperada ao criar o parcelamento.");
+  return data;
+}
+export async function findInstallmentPlanByRequest(requestId: string): Promise<FinInstallmentPlan | null> {
+  const userId = await uid();
+  const { data, error } = await sb.from("fin_installment_plans").select("*")
+    .eq("user_id", userId).eq("client_request_id", requestId).maybeSingle();
+  if (error) throw error;
+  return data as FinInstallmentPlan | null;
+}
+export async function payInstallment(installmentId: string, accountId: string, paidDate: string, requestId: string): Promise<{ transaction_id: string; duplicate: boolean }> {
+  await uid();
+  const { data, error } = await sb.rpc("pay_fin_installment", {
+    p_installment_id: installmentId, p_account_id: accountId, p_paid_date: paidDate, p_request_id: requestId,
+  });
+  if (error) throw error;
+  if (!data || typeof data.transaction_id !== "string") throw new Error("Resposta inesperada ao confirmar o pagamento.");
+  return data;
+}
+export async function updateInstallmentPlan(planId: string, input: InstallmentPlanInput): Promise<void> {
+  await uid();
+  const { error } = await sb.rpc("update_fin_installment_plan", {
+    p_plan_id: planId, p_account_id: input.account_id, p_description: input.description, p_category: input.category,
+    p_total: input.total_amount, p_count: input.installment_count, p_first_due: input.first_due_date,
+  });
+  if (error) throw error;
+}
+export async function cancelInstallmentPlan(planId: string, confirmOverdue: boolean, today: string): Promise<{ cancelled: number }> {
+  await uid();
+  const { data, error } = await sb.rpc("cancel_fin_installment_plan", {
+    p_plan_id: planId, p_confirm_overdue: confirmOverdue, p_today: today,
+  });
+  if (error) throw error;
+  return data;
 }
 
 /* -------- Goals -------- */
