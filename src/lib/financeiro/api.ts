@@ -142,9 +142,11 @@ export async function updateGoal(
   id: string,
   patch: Partial<GoalInput>,
 ): Promise<FinGoal> {
+  // current_amount changes only through contributions (DB trigger enforces it).
+  const { current_amount: _ignored, ...rest } = patch;
   const { data, error } = await sb
     .from("fin_goals")
-    .update(patch)
+    .update(rest)
     .eq("id", id).eq("user_id", await uid())
     .select()
     .single();
@@ -170,6 +172,7 @@ export async function addGoalContribution(
   amount: number,
   contribution_date: string,
   note?: string | null,
+  requestId?: string,
 ): Promise<void> {
   // Atomic: history insert + current_amount increment run in one DB transaction with a row lock.
   const { error } = await sb.rpc("add_fin_goal_contribution", {
@@ -177,6 +180,7 @@ export async function addGoalContribution(
     p_amount: amount,
     p_contribution_date: contribution_date,
     p_note: note ?? undefined,
+    ...(requestId ? { p_request_id: requestId } : {}),
   });
   if (error) throw error;
 }

@@ -182,6 +182,7 @@ export type Database = {
       fin_goal_contributions: {
         Row: {
           amount: number
+          client_request_id: string | null
           contribution_date: string
           created_at: string
           goal_id: string
@@ -191,6 +192,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          client_request_id?: string | null
           contribution_date?: string
           created_at?: string
           goal_id: string
@@ -200,6 +202,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          client_request_id?: string | null
           contribution_date?: string
           created_at?: string
           goal_id?: string
@@ -802,6 +805,7 @@ export type Database = {
           p_contribution_date: string
           p_goal_id: string
           p_note?: string
+          p_request_id?: string
         }
         Returns: Json
       }

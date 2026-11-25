@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MoreVertical, Pencil, PiggyBank, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +27,7 @@ import { confirmDelete, LoadError } from "@/components/atlas/ConfirmHost";
 
 export function MetasTab() {
   const qc = useQueryClient();
+  const pendingRequest = useRef<Record<string, { id: string; amount: number }>>({});
   const { data: goals = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["fin", "goals"],
     queryFn: listGoals,
@@ -63,9 +64,10 @@ export function MetasTab() {
     onError: (e: Error) => toast.error(e.message),
   });
   const contribMut = useMutation({
-    mutationFn: ({ id, amount }: { id: string; amount: number }) =>
-      addGoalContribution(id, amount, todayIso()),
+    mutationFn: ({ id, amount, requestId }: { id: string; amount: number; requestId: string }) =>
+      addGoalContribution(id, amount, todayIso(), null, requestId),
     onSuccess: (_d, v) => {
+      delete pendingRequest.current[v.id];
       setContribAmount((m) => ({ ...m, [v.id]: "" }));
       toast.success("Aporte registrado");
       invalidate();
@@ -184,7 +186,12 @@ export function MetasTab() {
                     disabled={parseContributionAmount(val) === null || contribMut.isPending}
                     onClick={() => {
                       const amount = parseContributionAmount(val);
-                      if (amount !== null) contribMut.mutate({ id: g.id, amount });
+                      if (amount === null) return;
+                      // Reuse the same request id on retry so a lost response never duplicates the contribution.
+                      const prev = pendingRequest.current[g.id];
+                      const requestId = prev && prev.amount === amount ? prev.id : crypto.randomUUID();
+                      pendingRequest.current[g.id] = { id: requestId, amount };
+                      contribMut.mutate({ id: g.id, amount, requestId });
                     }}
                   >
                     Aportar

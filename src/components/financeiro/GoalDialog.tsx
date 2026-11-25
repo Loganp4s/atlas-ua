@@ -59,7 +59,7 @@ export function GoalDialog({
       await onSubmit({
         name: name.trim(),
         target_amount: Number(target),
-        current_amount: Number(current) || 0,
+        ...(initial ? {} : { current_amount: Number(current) || 0 }),
         deadline: deadline ? dateToIso(deadline) : null,
         color,
       });
@@ -111,7 +111,10 @@ export function GoalDialog({
                 min="0"
                 value={current}
                 onChange={(e) => setCurrent(e.target.value)}
+                disabled={!!initial}
+                title={initial ? "Para alterar, use Aportar" : undefined}
               />
+              {initial && <span className="text-[10px] text-muted-foreground">Muda só por aportes</span>}
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
