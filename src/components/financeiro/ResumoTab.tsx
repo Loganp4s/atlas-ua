@@ -1,7 +1,7 @@
 import { LoadError } from "@/components/atlas/ConfirmHost";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDownRight, ArrowUpRight, PiggyBank, Sparkles, Wallet } from "lucide-react";
+import { ArrowDownRight, ArrowLeftRight, ArrowUpRight, PiggyBank, Sparkles, Wallet } from "lucide-react";
 import {
   computeBalanceBreakdown,
   listAccounts,
@@ -11,8 +11,14 @@ import {
 } from "@/lib/financeiro/api";
 import { formatBRL, formatDateBR, todayIso } from "@/lib/financeiro/format";
 import { Card } from "@/components/atlas/AppShell";
+import { Button } from "@/components/ui/button";
+import { useAuthUser } from "@/components/rotina/useAuthUser";
+import { TransferDialog, type TransferMode } from "./TransferDialog";
+import { accountBalance } from "@/lib/atlas/finance-query";
 
 export function ResumoTab() {
+  const auth = useAuthUser();
+  const [transferMode, setTransferMode] = useState<TransferMode | null>(null);
   const accountsQ = useQuery({ queryKey: ["fin", "accounts"], queryFn: listAccounts });
   const txQ = useQuery({ queryKey: ["fin", "tx"], queryFn: listTransactions });
   const billsQ = useQuery({ queryKey: ["fin", "bills"], queryFn: listBills });
@@ -96,6 +102,15 @@ export function ResumoTab() {
           />
         </div>
       </Card>
+
+      <section aria-label="Movimentar entre contas">
+        <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Movimentar entre contas</h3>
+        <div className="grid grid-cols-3 gap-2">
+          <Button variant="outline" size="sm" className="px-2" onClick={() => setTransferMode("transferencia")}><ArrowLeftRight className="h-4 w-4" />Transferir</Button>
+          <Button variant="outline" size="sm" className="px-2" onClick={() => setTransferMode("saque")}><ArrowDownRight className="h-4 w-4" />Saque</Button>
+          <Button variant="outline" size="sm" className="px-2" onClick={() => setTransferMode("deposito")}><ArrowUpRight className="h-4 w-4" />Depósito</Button>
+        </div>
+      </section>
 
       <div>
         <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -202,6 +217,9 @@ export function ResumoTab() {
           </div>
         </div>
       </Card>
+      <TransferDialog open={transferMode !== null} onOpenChange={(o) => { if (!o) setTransferMode(null); }}
+        mode={transferMode ?? "transferencia"} accounts={accounts}
+        balanceOf={(a) => accountBalance(a, tx, transfers ?? [])} userId={auth.user?.id} />
     </div>
   );
 }

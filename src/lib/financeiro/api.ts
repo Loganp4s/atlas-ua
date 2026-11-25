@@ -131,9 +131,19 @@ export interface TransferInput {
   description: string | null;
 }
 export interface TransferResult { transfer_id: string; duplicate: boolean }
+/** Leitura autenticada para reconciliar uma tentativa; ausência não comprova cancelamento. */
+export async function findTransferByRequest(requestId: string, expectedUserId: string): Promise<FinTransfer | null> {
+  const userId = await uid();
+  if (userId !== expectedUserId) throw new Error("A sessão mudou. Entre na conta desta transferência para verificá-la.");
+  const { data, error } = await sb.from("fin_transfers").select("*")
+    .eq("user_id", userId).eq("client_request_id", requestId).maybeSingle();
+  if (error) throw error;
+  return data as FinTransfer | null;
+}
 /** Única forma de registrar transferências: RPC atômica e idempotente. */
-export async function createTransfer(input: TransferInput, requestId: string): Promise<TransferResult> {
-  await uid();
+export async function createTransfer(input: TransferInput, requestId: string, expectedUserId?: string): Promise<TransferResult> {
+  const userId = await uid();
+  if (expectedUserId && userId !== expectedUserId) throw new Error("A sessão mudou. Entre na conta desta transferência para confirmá-la.");
   const { data, error } = await sb.rpc("create_fin_transfer", {
     p_source_account_id: input.source_account_id,
     p_destination_account_id: input.destination_account_id,

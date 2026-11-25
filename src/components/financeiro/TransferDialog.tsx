@@ -6,12 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { createTransfer, type TransferInput } from "@/lib/financeiro/api";
+import { createTransfer, findTransferByRequest, type TransferInput } from "@/lib/financeiro/api";
+import { confirmDelete } from "@/components/atlas/ConfirmHost";
 import type { FinAccount } from "@/lib/financeiro/types";
 import { formatBRL, todayIso } from "@/lib/financeiro/format";
 import { parseContributionAmount } from "@/lib/financeiro/contribution";
 import {
-  clearPendingTransfer, discardPendingTransfer, isTransferConflict, markPendingTransferConflict,
+  clearPendingTransfer, reconcilePendingTransfer, isTransferConflict, markPendingTransferConflict,
   preparePendingTransfer, readPendingTransfer, validateTransfer, withTransferLock, type PendingTransfer,
 } from "@/lib/financeiro/pending-transfer";
 
@@ -40,13 +41,14 @@ export function TransferDialog({ open, onOpenChange, mode, accounts, balanceOf, 
   const [pending, setPending] = useState<PendingTransfer | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [storageBlocked, setStorageBlocked] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setStep("form"); setError("");
+    setStep("form"); setError(""); setStorageBlocked(false);
     let p: PendingTransfer | null = null;
     try { p = userId ? readPendingTransfer(localStorage, userId) : null; }
-    catch (e) { setError((e as Error).message); }
+    catch (e) { setError((e as Error).message); setStorageBlocked(true); }
     setPending(p);
     if (p) {
       setSource(p.source_account_id); setDest(p.destination_account_id);
@@ -54,7 +56,7 @@ export function TransferDialog({ open, onOpenChange, mode, accounts, balanceOf, 
       return;
     }
     setAmount(""); setDate(todayIso()); setDesc("");
-    const w = wallets.length === 1 ? wallets[0]!.id : "";
+    const w = wallets.length === 1 ? wallets[0]?.id ?? "" : "";
     setSource(mode === "deposito" ? w : "");
     setDest(mode === "saque" ? w : "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -65,7 +67,7 @@ export function TransferDialog({ open, onOpenChange, mode, accounts, balanceOf, 
     transfer_date: date, description: desc.trim() || null };
   const formError = validateTransfer({ ...input, amount: parsed ?? undefined });
   const byId = (id: string) => accounts.find((a) => a.id === id);
-  const locked = !!pending;
+  const locked = !!pending || storageBlocked || saving;
 
   function balanceLabel(id: string) {
     const a = byId(id); if (!a) return null;
@@ -74,14 +76,14 @@ export function TransferDialog({ open, onOpenChange, mode, accounts, balanceOf, 
   }
 
   async function confirm() {
-    if (!userId || formError || saving) return;
+    if (!userId || formError || saving || storageBlocked) return;
     setSaving(true); setError("");
     try {
       await withTransferLock(userId, async () => {
         const p = preparePendingTransfer(localStorage, userId, input, () => crypto.randomUUID());
         setPending(p);
         try {
-          const r = await createTransfer(p, p.requestId);
+          const r = await createTransfer(p, p.requestId, userId);
           clearPendingTransfer(localStorage, p);
           setPending(null);
           toast.success(r.duplicate ? "Esta transferência já estava registrada" : "Transferência registrada");
@@ -99,11 +101,25 @@ export function TransferDialog({ open, onOpenChange, mode, accounts, balanceOf, 
     } finally { setSaving(false); }
   }
 
-  function discard() {
-    if (!userId) return;
-    discardPendingTransfer(localStorage, userId);
-    setPending(null); setError("");
-    toast.message("Tentativa descartada. Confira o histórico antes de registrar de novo.");
+  async function discard() {
+    if (!userId || !pending || saving) return;
+    const p = pending;
+    const confirmed = await confirmDelete("Verificar antes de descartar?",
+      "Confira o histórico antes de abandonar esta tentativa: ela pode já ter sido registrada mesmo sem resposta. Vamos consultar o registro. A chave só será liberada se a mesma operação for confirmada; se o resultado continuar incerto, nada será descartado.",
+      "Verificar registro");
+    if (!confirmed) return;
+    setSaving(true); setError("");
+    try {
+      await withTransferLock(userId, async () => {
+        await reconcilePendingTransfer(localStorage, p, confirmed, findTransferByRequest);
+        setPending(null);
+        toast.success("Esta transferência já está registrada. Nenhuma nova operação foi criada.");
+        await Promise.all([qc.invalidateQueries({ queryKey: ["fin", "transfers"] }), qc.invalidateQueries({ queryKey: ["fin", "accounts"] })]);
+        onOpenChange(false);
+      });
+    } catch (e) {
+      setError((e as { message?: string }).message ?? "Não foi possível verificar. A chave foi preservada; tente novamente.");
+    } finally { setSaving(false); }
   }
 
   return (
@@ -113,7 +129,7 @@ export function TransferDialog({ open, onOpenChange, mode, accounts, balanceOf, 
           <DialogTitle>{TITLE[mode]}</DialogTitle>
           <DialogDescription>{HINT[mode]}</DialogDescription>
         </DialogHeader>
-        {eligible.length < 2 ? (
+        {eligible.length < 2 && !pending && !storageBlocked ? (
           <p className="text-sm text-muted-foreground">
             Você precisa de pelo menos duas contas ativas (cartões não entram) para transferir.
             {mode !== "transferencia" && wallets.length === 0 ? " Para saques e depósitos, cadastre uma conta do tipo Carteira." : ""}
@@ -133,7 +149,7 @@ export function TransferDialog({ open, onOpenChange, mode, accounts, balanceOf, 
                 {pending.conflict
                   ? "Esta tentativa entrou em conflito com outra já registrada. Confira o histórico antes de descartá-la."
                   : "Há uma transferência que ainda não teve confirmação. Confirme de novo: ela não será duplicada."}
-                <Button variant="link" size="sm" className="h-auto px-1 text-xs" onClick={discard}>Descartar tentativa</Button>
+                <Button variant="link" size="sm" className="h-auto px-1 text-xs" disabled={saving} onClick={() => void discard()}>Descartar tentativa</Button>
               </div>
             )}
             {(["source", "dest"] as const).map((k) => {
@@ -145,8 +161,8 @@ export function TransferDialog({ open, onOpenChange, mode, accounts, balanceOf, 
                   <Select value={value} disabled={locked} onValueChange={(v) => (k === "source" ? setSource(v) : setDest(v))}>
                     <SelectTrigger aria-label={k === "source" ? "Conta de origem" : "Conta de destino"}><SelectValue placeholder="Escolha a conta" /></SelectTrigger>
                     <SelectContent>
-                      {eligible.filter((a) => a.id !== other).map((a) => (
-                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                      {(pending ? accounts : eligible).filter((a) => a.id !== other).map((a) => (
+                        <SelectItem key={a.id} value={a.id}>{a.name}{a.archived ? " · Arquivada" : ""}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -181,7 +197,7 @@ export function TransferDialog({ open, onOpenChange, mode, accounts, balanceOf, 
           ) : (
             <>
               <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
-              <Button disabled={!!formError || eligible.length < 2 || !!pending?.conflict || !userId} onClick={() => setStep("confirm")}>Continuar</Button>
+              <Button disabled={!!formError || (!pending && eligible.length < 2) || !!pending?.conflict || !userId || storageBlocked || saving} onClick={() => setStep("confirm")}>Continuar</Button>
             </>
           )}
         </DialogFooter>

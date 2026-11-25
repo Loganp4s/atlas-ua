@@ -10,6 +10,12 @@ The legacy baseline remains in `supabase/migrations`. The current delta history 
 
 ## Reproducing a separate environment
 
+### Transfer recovery delta (1.4.1)
+
+`drizzle/migrations/0004_transfer_replay_after_archive.sql` replaces only `create_fin_transfer`, using the same Cloud custom migration flow. It checks authenticated strict replay before active-account validation and serializes matching user/request keys with a transaction advisory lock; new requests still lock both owned accounts in ID order. `0003` remains unchanged. Transfers retain `ON DELETE RESTRICT` on both account references; transactions retain their separate `SET NULL` rule. The UI offers archival for either kind of linked history.
+
+Summary and Accounts reuse `TransferDialog`. Abandonment first requires explicit confirmation and an authenticated lookup of the request key. Only a matching persisted transfer reconciles and clears local state; a missing row, network failure or mismatched payload remains blocked because absence cannot exclude an in-flight commit. Normal retry continues to use the same key. This is not cancellation, reversal or cross-device recovery.
+
 1. Provision an isolated PostgreSQL environment with the platform's auth schema, roles and policies (a bare PostgreSQL installation is not the full app).
 2. Apply the legacy baseline once using its original migration history; do not replay it into an existing populated baseline. Supabase CLI alone does **not** apply the Drizzle deltas.
 3. Apply the existing Drizzle custom SQL deltas in journal order through the infrastructure's migration flow, preserving each tag, hash and timestamp. This project's tool targets its connected Cloud database; it is **not** an exporter or a verified arbitrary-target provisioning command.

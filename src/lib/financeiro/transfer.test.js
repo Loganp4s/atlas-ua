@@ -1,7 +1,7 @@
 import { test, expect } from "bun:test";
 const { computeBalanceBreakdown, computeBalance, computeActiveBalance } = await import("@/lib/financeiro/api");
 const { accountBalance } = await import("@/lib/atlas/finance-query");
-const { validateTransfer, preparePendingTransfer, readPendingTransfer, clearPendingTransfer, markPendingTransferConflict } =
+const { validateTransfer, preparePendingTransfer, readPendingTransfer, clearPendingTransfer, markPendingTransferConflict, reconcilePendingTransfer } =
   await import("@/lib/financeiro/pending-transfer");
 
 const acc = (id, initial, archived = false) => ({ id, user_id: "u", name: id, type: "corrente", initial_balance: initial, color: "", icon: "", archived, created_at: "", updated_at: "" });
@@ -52,4 +52,56 @@ test("tentativa pendente sobrevive a reload, reutiliza a chave e bloqueia dados 
   expect(() => preparePendingTransfer(s, "u1", input, "k4")).toThrow(/Conflito/);
   expect(clearPendingTransfer(s, p)).toBe(true);
   expect(readPendingTransfer(s, "u1")).toBeNull();
+});
+
+function recoveryFixture() {
+  const mem = new Map();
+  const storage = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, v), removeItem: (k) => mem.delete(k) };
+  const input = { source_account_id: "pic", destination_account_id: "nu", amount: 50, transfer_date: "2026-11-25", description: null };
+  const pending = preparePendingTransfer(storage, "u1", input, "k1");
+  const recorded = { ...tr("pic", "nu", 50), user_id: "u1", client_request_id: "k1" };
+  return { storage, pending, recorded, input };
+}
+test("descarte sem confirmação não consulta nem remove a chave", async () => {
+  const { storage, pending, recorded } = recoveryFixture();
+  let called = false;
+  await expect(reconcilePendingTransfer(storage, pending, false, async () => { called = true; return recorded; })).rejects.toThrow(/Confirme/);
+  expect(called).toBe(false);
+  expect(readPendingTransfer(storage, "u1").requestId).toBe("k1");
+});
+test("ausência de registro não autoriza descarte nem nova chave", async () => {
+  const { storage, pending, input } = recoveryFixture();
+  await expect(reconcilePendingTransfer(storage, pending, true, async () => null)).rejects.toThrow(/processamento/);
+  expect(preparePendingTransfer(storage, "u1", input, "k2").requestId).toBe("k1");
+  expect(() => preparePendingTransfer(storage, "u1", { ...input, amount: 51 }, "k2")).toThrow(/pendente/);
+});
+test("erro de rede ou timeout preserva a chave e o payload", async () => {
+  const { storage, pending } = recoveryFixture();
+  for (const error of [new Error("network"), new Error("timeout")]) {
+    await expect(reconcilePendingTransfer(storage, pending, true, async () => { throw error; })).rejects.toThrow(error.message);
+    expect(readPendingTransfer(storage, "u1")).toEqual(pending);
+  }
+});
+test("registro autenticado correspondente reconcilia sem escrever outra operação", async () => {
+  const { storage, pending, recorded } = recoveryFixture();
+  let query;
+  expect(await reconcilePendingTransfer(storage, pending, true, async (...args) => { query = args; return recorded; })).toEqual(recorded);
+  expect(query).toEqual(["k1", "u1"]);
+  expect(readPendingTransfer(storage, "u1")).toBeNull();
+});
+test("outro usuário ou payload diferente não libera a tentativa", async () => {
+  const { storage, pending, recorded } = recoveryFixture();
+  for (const patch of [{ user_id: "u2" }, { client_request_id: "k2" }, { amount: 51 }, { destination_account_id: "outro" }, { transfer_date: "2026-11-26" }, { description: "diferente" }]) {
+    await expect(reconcilePendingTransfer(storage, pending, true, async () => ({ ...recorded, ...patch }))).rejects.toThrow(/não corresponde/);
+    expect(readPendingTransfer(storage, "u1").requestId).toBe("k1");
+  }
+});
+test("tentativa alterada em outra aba não é apagada pela consulta antiga", async () => {
+  const { storage, pending, recorded, input } = recoveryFixture();
+  await expect(reconcilePendingTransfer(storage, pending, true, async () => {
+    clearPendingTransfer(storage, pending);
+    preparePendingTransfer(storage, "u1", input, "k2");
+    return recorded;
+  })).rejects.toThrow(/outra aba/);
+  expect(readPendingTransfer(storage, "u1").requestId).toBe("k2");
 });

@@ -29,6 +29,13 @@
       "when": 1795609793325,
       "tag": "0003_fin_transfers",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795640038334,
+      "tag": "0004_transfer_replay_after_archive",
+      "breakpoints": true
     }
   ]
 }

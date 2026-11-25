@@ -76,6 +76,7 @@ suite("transferências — PostgreSQL real isolado", () => {
     `);
     const exists = await db`SELECT to_regclass('public.fin_transfers') AS t`;
     if (!exists[0].t) await db.unsafe(await readFile(new URL("../../../drizzle/migrations/0003_fin_transfers.sql", import.meta.url), "utf8"));
+    await db.unsafe(await readFile(new URL("../../../drizzle/migrations/0004_transfer_replay_after_archive.sql", import.meta.url), "utf8"));
     await db.unsafe(`
       CREATE OR REPLACE FUNCTION public.test_fail_transfer() RETURNS trigger LANGUAGE plpgsql AS $$
       BEGIN IF current_setting('test.fail_transfer',true)='on' THEN RAISE EXCEPTION 'injected failure'; END IF; RETURN NEW; END $$;
@@ -155,6 +156,28 @@ suite("transferências — PostgreSQL real isolado", () => {
       const err = await transfer(U1, ...args, null, k).catch((e) => e);
       expect(err.code).toBe("PT409");
     }
+    expect((await rows()).length).toBe(1);
+  });
+  test("1.4.1 replay após arquivar ambas as contas retorna o registro original", async () => {
+    const k = key();
+    const original = await transfer(U1, PIC, NU, 50, "2026-11-25", "recuperar", k);
+    await db`UPDATE fin_accounts SET archived=true WHERE id IN (${PIC},${NU})`;
+    const replay = await transfer(U1, PIC, NU, 50, "2026-11-25", "recuperar", k);
+    expect(replay).toEqual({ transfer_id: original.transfer_id, duplicate: true });
+    expect((await rows()).length).toBe(1);
+  });
+  test("1.4.1 nova chave após arquivar continua recusada", async () => {
+    await transfer(U1, PIC, NU, 50);
+    await db`UPDATE fin_accounts SET archived=true WHERE id=${PIC}`;
+    await expect(transfer(U1, PIC, NU, 50)).rejects.toThrow(/arquivadas/);
+    expect((await rows()).length).toBe(1);
+  });
+  test("1.4.1 chave com dados diferentes continua conflito após arquivar", async () => {
+    const k = key();
+    await transfer(U1, PIC, NU, 50, "2026-11-25", null, k);
+    await db`UPDATE fin_accounts SET archived=true WHERE id=${PIC}`;
+    const error = await transfer(U1, PIC, NU, 51, "2026-11-25", null, k).catch((e) => e);
+    expect(error.code).toBe("PT409");
     expect((await rows()).length).toBe(1);
   });
   test("20 requisições simultâneas: mesma chave grava uma; chaves distintas gravam todas", async () => {

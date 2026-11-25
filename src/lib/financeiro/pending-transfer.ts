@@ -5,6 +5,7 @@
  */
 import type { PendingStorage } from "./pending-contribution";
 import type { TransferInput } from "./api";
+import type { FinTransfer } from "./types";
 
 export interface PendingTransfer extends TransferInput {
   version: 1;
@@ -75,9 +76,24 @@ export function markPendingTransferConflict(storage: PendingStorage, p: PendingT
   if (cur?.requestId === p.requestId) storage.setItem(pendingTransferKey(p.userId), JSON.stringify({ ...cur, conflict: true }));
 }
 
-/** Discards a pending attempt only after the user explicitly verified the history. */
-export function discardPendingTransfer(storage: PendingStorage, userId: string): void {
-  storage.removeItem(pendingTransferKey(userId));
+/** Only an authenticated, matching server record can resolve an ambiguous attempt. */
+export async function reconcilePendingTransfer(storage: PendingStorage, p: PendingTransfer,
+  confirmed: boolean, lookup: (requestId: string, userId: string) => Promise<FinTransfer | null>): Promise<FinTransfer> {
+  if (!confirmed) throw new Error("Confirme a verificação antes de resolver a tentativa.");
+  const current = readPendingTransfer(storage, p.userId);
+  if (current?.requestId !== p.requestId || !sameInput(current, p)) {
+    throw new Error("A tentativa mudou em outra aba. Feche e abra novamente para verificá-la.");
+  }
+  const recorded = await lookup(p.requestId, p.userId);
+  if (!recorded) {
+    throw new Error("Ainda não foi possível comprovar o resultado. A solicitação pode estar em processamento. A chave foi preservada; confira o histórico ou confirme novamente a mesma tentativa.");
+  }
+  if (recorded.user_id !== p.userId || recorded.client_request_id !== p.requestId ||
+    !sameInput({ ...recorded, amount: Number(recorded.amount) }, p)) {
+    throw new Error("O registro encontrado não corresponde a esta tentativa. A chave foi preservada; confira o histórico antes de prosseguir.");
+  }
+  if (!clearPendingTransfer(storage, p)) throw new Error("A tentativa mudou em outra aba. Abra novamente para verificar.");
+  return recorded;
 }
 
 export async function withTransferLock<T>(userId: string, action: () => Promise<T>): Promise<T> {

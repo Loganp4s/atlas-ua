@@ -102,7 +102,8 @@ export function AccountsSection() {
     const linked = tx.filter((t) => t.account_id === a.id).length +
       transfers.filter((t) => t.source_account_id === a.id || t.destination_account_id === a.id).length;
     if (linked > 0) {
-      // A FK usa ON DELETE SET NULL: excluir desvincularia o histórico. Oferecemos arquivar.
+      // Transferências usam ON DELETE RESTRICT; transações usam SET NULL.
+      // Oferecemos arquivar em ambos os casos para preservar os vínculos históricos.
       const ok = await confirmDelete(
         "Esta conta tem movimentações",
         `"${a.name}" possui ${linked} movimentaç${linked === 1 ? "ão" : "ões"} vinculada${linked === 1 ? "" : "s"}. Para não perder o histórico, ela não pode ser excluída. Deseja arquivá-la?`,
