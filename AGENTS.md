@@ -15,3 +15,4 @@
 - The Atlas Composer routes money through `detectFinance` with a confirmation card that writes only via the existing Finance APIs; transfers, withdrawals and investments are explained and never recorded until the data model supports them, so reports never count them as income/expense.
 - Collection readers use the shared exhaustive range reader with existing filters and a unique final sort key; keep arrays complete so cached lists and calculations never silently inherit the Data API row cap.
 - Finance balances come from `computeBalanceBreakdown` (active, archived, unassigned buckets; consolidated = their sum); show the active-account balance as available money so archived accounts and account-less transactions are never mixed in silently.
+- Goal contributions go only through the `add_fin_goal_contribution` RPC (row lock + single transaction) so history and `current_amount` can never diverge or lose concurrent deposits.
