@@ -796,7 +796,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      add_fin_goal_contribution: {
+        Args: {
+          p_amount: number
+          p_contribution_date: string
+          p_goal_id: string
+          p_note?: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       atlas_accountability: "leve" | "normal" | "firme"

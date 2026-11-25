@@ -171,23 +171,14 @@ export async function addGoalContribution(
   contribution_date: string,
   note?: string | null,
 ): Promise<void> {
-  const user_id = await uid();
-  const { error } = await sb.from("fin_goal_contributions").insert({
-    user_id,
-    goal_id: goalId,
-    amount,
-    contribution_date,
-    note: note ?? null,
+  // Atomic: history insert + current_amount increment run in one DB transaction with a row lock.
+  const { error } = await sb.rpc("add_fin_goal_contribution", {
+    p_goal_id: goalId,
+    p_amount: amount,
+    p_contribution_date: contribution_date,
+    p_note: note ?? undefined,
   });
   if (error) throw error;
-  // Update goal current amount
-  const { data: g } = await sb
-    .from("fin_goals")
-    .select("current_amount")
-    .eq("id", goalId)
-    .single();
-  const next = Number(g?.current_amount ?? 0) + amount;
-  await sb.from("fin_goals").update({ current_amount: next }).eq("id", goalId).eq("user_id", await uid());
 }
 
 /* -------- Bills -------- */

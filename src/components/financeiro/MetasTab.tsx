@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { GoalDialog } from "./GoalDialog";
+import { parseContributionAmount } from "@/lib/financeiro/contribution";
 import { confirmDelete, LoadError } from "@/components/atlas/ConfirmHost";
 
 export function MetasTab() {
@@ -64,7 +65,8 @@ export function MetasTab() {
   const contribMut = useMutation({
     mutationFn: ({ id, amount }: { id: string; amount: number }) =>
       addGoalContribution(id, amount, todayIso()),
-    onSuccess: () => {
+    onSuccess: (_d, v) => {
+      setContribAmount((m) => ({ ...m, [v.id]: "" }));
       toast.success("Aporte registrado");
       invalidate();
     },
@@ -179,10 +181,10 @@ export function MetasTab() {
                   />
                   <Button
                     size="sm"
-                    disabled={!Number(val)}
+                    disabled={parseContributionAmount(val) === null || contribMut.isPending}
                     onClick={() => {
-                      contribMut.mutate({ id: g.id, amount: Number(val) });
-                      setContribAmount({ ...contribAmount, [g.id]: "" });
+                      const amount = parseContributionAmount(val);
+                      if (amount !== null) contribMut.mutate({ id: g.id, amount });
                     }}
                   >
                     Aportar
