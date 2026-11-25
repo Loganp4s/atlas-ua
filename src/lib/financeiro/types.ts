@@ -83,3 +83,14 @@ export interface FinBill {
  * A tabela legada fin_objectives foi mantida no banco apenas como histórico;
  * Finanças cuida de entradas, saídas, metas, contas e relatórios.
  */
+export interface FinTransfer {
+  id: string;
+  user_id: string;
+  source_account_id: string;
+  destination_account_id: string;
+  amount: number;
+  transfer_date: string;
+  description: string | null;
+  client_request_id: string | null;
+  created_at: string;
+}

@@ -7,6 +7,7 @@ import {
   listAccounts,
   listBills,
   listTransactions,
+  listTransfers,
 } from "@/lib/financeiro/api";
 import { formatBRL, formatDateBR, todayIso } from "@/lib/financeiro/format";
 import { Card } from "@/components/atlas/AppShell";
@@ -15,6 +16,8 @@ export function ResumoTab() {
   const accountsQ = useQuery({ queryKey: ["fin", "accounts"], queryFn: listAccounts });
   const txQ = useQuery({ queryKey: ["fin", "tx"], queryFn: listTransactions });
   const billsQ = useQuery({ queryKey: ["fin", "bills"], queryFn: listBills });
+  const transfersQ = useQuery({ queryKey: ["fin", "transfers"], queryFn: listTransfers });
+  const transfers = transfersQ.data;
 
   const accounts = accountsQ.data ?? [];
   const tx = txQ.data ?? [];
@@ -31,12 +34,12 @@ export function ResumoTab() {
       .filter((t) => t.type === "saida")
       .reduce((s, t) => s + Number(t.amount), 0);
     return {
-      breakdown: computeBalanceBreakdown(accounts, tx),
+      breakdown: computeBalanceBreakdown(accounts, tx, transfers ?? []),
       receitas,
       despesas,
       economia: receitas - despesas,
     };
-  }, [accounts, tx]);
+  }, [accounts, tx, transfers]);
 
   const today = todayIso();
   const upcomingBills = bills
@@ -44,8 +47,8 @@ export function ResumoTab() {
     .slice(0, 3);
   const recentTx = tx.slice(0, 5);
 
-  if (accountsQ.isError || txQ.isError || billsQ.isError) return <LoadError onRetry={() => { void accountsQ.refetch(); void txQ.refetch(); void billsQ.refetch(); }} />;
-  if (accountsQ.isLoading || txQ.isLoading || billsQ.isLoading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
+  if (accountsQ.isError || txQ.isError || billsQ.isError || transfersQ.isError) return <LoadError onRetry={() => { void accountsQ.refetch(); void txQ.refetch(); void billsQ.refetch(); void transfersQ.refetch(); }} />;
+  if (accountsQ.isLoading || txQ.isLoading || billsQ.isLoading || transfersQ.isLoading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
 
   return (
     <div className="flex flex-col gap-4">

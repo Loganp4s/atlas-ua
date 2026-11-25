@@ -4,13 +4,15 @@
  */
 import { computeBalanceBreakdown } from "@/lib/financeiro/api";
 import { formatBRL } from "@/lib/financeiro/format";
-import type { FinAccount, FinGoal, FinTransaction } from "@/lib/financeiro/types";
+import type { FinAccount, FinGoal, FinTransaction, FinTransfer } from "@/lib/financeiro/types";
 import { normalize, type FinanceQuery } from "./finance-intent";
 
 export interface FinanceSnapshot {
   accounts: FinAccount[];
   transactions: FinTransaction[];
   goals: FinGoal[];
+  /** Opcional: transferências entre contas (não são receita nem despesa). */
+  transfers?: FinTransfer[];
 }
 
 const SOURCE_NOTE = "Calculado com o que você registrou em Finanças.";
@@ -20,10 +22,13 @@ function monthPrefix(now: Date) {
 }
 
 /** Per-account balance, same rule as the Contas screen. */
-export function accountBalance(account: FinAccount, transactions: FinTransaction[]): number {
-  return transactions
+export function accountBalance(account: FinAccount, transactions: FinTransaction[], transfers: FinTransfer[] = []): number {
+  const base = transactions
     .filter((t) => t.account_id === account.id)
     .reduce((s, t) => s + (t.type === "entrada" ? Number(t.amount) : -Number(t.amount)), Number(account.initial_balance || 0));
+  return transfers.reduce((s, t) =>
+    s + (t.destination_account_id === account.id ? Number(t.amount) : 0)
+      - (t.source_account_id === account.id ? Number(t.amount) : 0), base);
 }
 
 /**
@@ -41,6 +46,7 @@ export function matchAccounts(text: string, accounts: FinAccount[]): FinAccount[
 
 export function answerFinanceQuery(query: FinanceQuery, data: FinanceSnapshot, now = new Date()): string {
   const { accounts, transactions, goals } = data;
+  const transfers = data.transfers ?? [];
   const month = monthPrefix(now);
   const monthTx = transactions.filter((t) => t.tx_date.startsWith(month));
 
@@ -49,7 +55,7 @@ export function answerFinanceQuery(query: FinanceQuery, data: FinanceSnapshot, n
       if (accounts.length === 0 && transactions.length === 0) {
         return "Você ainda não cadastrou contas nem movimentações em Finanças, então ainda não sei seu saldo.";
       }
-      const bd = computeBalanceBreakdown(accounts, transactions);
+      const bd = computeBalanceBreakdown(accounts, transactions, transfers);
       const extras: string[] = [];
       if (bd.archived.accountCount > 0) extras.push(`contas arquivadas: ${formatBRL(bd.archived.balance)}`);
       if (bd.unassigned.transactionCount > 0) extras.push(`movimentações sem conta: ${formatBRL(bd.unassigned.balance)}`);
@@ -63,7 +69,7 @@ export function answerFinanceQuery(query: FinanceQuery, data: FinanceSnapshot, n
       const active = accounts.filter((a) => !a.archived);
       if (active.length === 0) return "Você ainda não cadastrou contas em Finanças.";
       const ranked = active
-        .map((a) => ({ a, v: accountBalance(a, transactions) }))
+        .map((a) => ({ a, v: accountBalance(a, transactions, transfers) }))
         .sort((x, y) => y.v - x.v);
       if (ranked.length > 1 && ranked[0].v === ranked[1].v) {
         return `Suas contas ${ranked[0].a.name} e ${ranked[1].a.name} estão empatadas com ${formatBRL(ranked[0].v)}. ${SOURCE_NOTE}`;

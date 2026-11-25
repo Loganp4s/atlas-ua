@@ -13,7 +13,7 @@ import { FinancialGoalSuggestion } from "@/components/objetivos/FinancialGoalSug
 import { cleanEventTitle, parseTemporal } from "@/lib/atlas/temporal";
 import type { FinanceIntent } from "@/lib/atlas/finance-intent";
 import { answerFinanceQuery } from "@/lib/atlas/finance-query";
-import { listAccounts, listGoals, listTransactions } from "@/lib/financeiro/api";
+import { listAccounts, listGoals, listTransactions, listTransfers } from "@/lib/financeiro/api";
 import { formatBRL } from "@/lib/financeiro/format";
 import { FinanceConfirm } from "./FinanceConfirm";
 
@@ -109,13 +109,14 @@ export function AtlasPresence() {
         savingRef.current = true;
         setState({ kind: "thinking" });
         try {
-          const [accounts, transactions, goals] = await Promise.all([
+          const [accounts, transactions, goals, transfers] = await Promise.all([
             qc.fetchQuery({ queryKey: ["fin", "accounts"], queryFn: listAccounts }),
             qc.fetchQuery({ queryKey: ["fin", "tx"], queryFn: listTransactions }),
             qc.fetchQuery({ queryKey: ["fin", "goals"], queryFn: listGoals }),
+            qc.fetchQuery({ queryKey: ["fin", "transfers"], queryFn: listTransfers }),
           ]);
           setText("");
-          setState({ kind: "done", message: answerFinanceQuery(query, { accounts, transactions, goals }) });
+          setState({ kind: "done", message: answerFinanceQuery(query, { accounts, transactions, goals, transfers }) });
         } catch {
           setState({ kind: "idle" });
           toast.error("Não consegui consultar Finanças agora. Tente de novo.");

@@ -1,17 +1,18 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, MoreVertical, Pencil, Plus, Trash2, Wallet } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeftRight, ArrowRight, MoreVertical, Pencil, Plus, Trash2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import {
   createAccount,
   deleteAccount,
   listAccounts,
   listTransactions,
+  listTransfers,
   updateAccount,
   type AccountInput,
 } from "@/lib/financeiro/api";
 import type { FinAccount } from "@/lib/financeiro/types";
-import { formatBRL } from "@/lib/financeiro/format";
+import { formatBRL, formatDateBR } from "@/lib/financeiro/format";
 import { accountBalance } from "@/lib/atlas/finance-query";
 import { EmptyState } from "@/components/atlas/AppShell";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { confirmDelete, LoadError } from "@/components/atlas/ConfirmHost";
 import { AccountDialog } from "./AccountDialog";
+import { TransferDialog, type TransferMode } from "./TransferDialog";
+import { useAuthUser } from "@/components/rotina/useAuthUser";
 
 const TYPE_LABEL: Record<FinAccount["type"], string> = {
   corrente: "Conta corrente",
@@ -40,6 +43,11 @@ export function AccountsSection() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<FinAccount | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const transfersQ = useQuery({ queryKey: ["fin", "transfers"], queryFn: listTransfers });
+  const auth = useAuthUser();
+  const [transferMode, setTransferMode] = useState<TransferMode | null>(null);
+  const [showAllTransfers, setShowAllTransfers] = useState(false);
+  const transfers = transfersQ.data ?? [];
 
   const accounts = accountsQ.data ?? [];
   const tx = txQ.data ?? [];
@@ -81,15 +89,18 @@ export function AccountsSection() {
   });
 
   function balanceOf(a: FinAccount) {
-    return accountBalance(a, tx);
+    return accountBalance(a, tx, transfers);
   }
+  const balancesReady = !txQ.isLoading && !transfersQ.isLoading && !txQ.isError && !transfersQ.isError;
+  const accName = (id: string) => accounts.find((a) => a.id === id)?.name ?? "Conta removida";
 
   async function handleDelete(a: FinAccount) {
-    if (txQ.isLoading || txQ.isError) {
+    if (txQ.isLoading || txQ.isError || transfersQ.isLoading || transfersQ.isError) {
       toast.error("Aguarde o carregamento das movimentações e tente novamente.");
       return;
     }
-    const linked = tx.filter((t) => t.account_id === a.id).length;
+    const linked = tx.filter((t) => t.account_id === a.id).length +
+      transfers.filter((t) => t.source_account_id === a.id || t.destination_account_id === a.id).length;
     if (linked > 0) {
       // A FK usa ON DELETE SET NULL: excluir desvincularia o histórico. Oferecemos arquivar.
       const ok = await confirmDelete(
@@ -111,18 +122,31 @@ export function AccountsSection() {
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Minhas contas
         </p>
-        <Button
-          size="sm"
-          variant="outline"
-          className="rounded-full"
-          onClick={() => {
-            setEditing(null);
-            setOpen(true);
-          }}
-        >
-          <Plus className="h-4 w-4" /> Conta
-        </Button>
+        <div className="flex gap-2">
+          {accounts.length > 0 && (
+            <Button size="sm" variant="outline" className="rounded-full" onClick={() => setTransferMode("transferencia")}>
+              <ArrowLeftRight className="h-4 w-4" /> Transferir
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-full"
+            onClick={() => {
+              setEditing(null);
+              setOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4" /> Conta
+          </Button>
+        </div>
       </div>
+      {accounts.length > 0 && (
+        <div className="flex gap-2 text-xs">
+          <button className="rounded-full border border-border/70 px-3 py-1 text-muted-foreground hover:text-foreground" onClick={() => setTransferMode("saque")}>Saque</button>
+          <button className="rounded-full border border-border/70 px-3 py-1 text-muted-foreground hover:text-foreground" onClick={() => setTransferMode("deposito")}>Depósito</button>
+        </div>
+      )}
 
       {accountsQ.isError ? (
         <LoadError onRetry={() => accountsQ.refetch()} />
@@ -157,7 +181,7 @@ export function AccountsSection() {
                 </p>
               </div>
               <span className="shrink-0 text-sm font-medium text-foreground">
-                {txQ.isLoading ? "…" : formatBRL(balanceOf(a))}
+                {!balancesReady ? "…" : formatBRL(balanceOf(a))}
               </span>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -203,6 +227,50 @@ export function AccountsSection() {
           ))}
         </ul>
       )}
+
+      <div className="mt-3 flex flex-col gap-2">
+        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Transferências</p>
+        {transfersQ.isError ? (
+          <LoadError onRetry={() => transfersQ.refetch()} />
+        ) : transfersQ.isLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando...</p>
+        ) : transfers.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhuma transferência registrada.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {(showAllTransfers ? transfers : transfers.slice(0, 5)).map((t) => (
+              <li key={t.id} className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card px-3 py-2.5">
+                <ArrowLeftRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-1 truncate text-sm text-foreground">
+                    <span className="truncate">{accName(t.source_account_id)}</span>
+                    <ArrowRight className="h-3 w-3 shrink-0" aria-label="para" />
+                    <span className="truncate">{accName(t.destination_account_id)}</span>
+                  </p>
+                  <p className="truncate text-[11px] text-muted-foreground">
+                    {formatDateBR(t.transfer_date)}{t.description ? ` · ${t.description}` : ""}
+                  </p>
+                </div>
+                <span className="shrink-0 text-sm font-medium text-foreground">{formatBRL(Number(t.amount))}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {transfers.length > 5 && (
+          <Button variant="ghost" size="sm" onClick={() => setShowAllTransfers((v) => !v)}>
+            {showAllTransfers ? "Mostrar menos" : `Ver todas (${transfers.length})`}
+          </Button>
+        )}
+      </div>
+
+      <TransferDialog
+        open={transferMode !== null}
+        onOpenChange={(o) => { if (!o) setTransferMode(null); }}
+        mode={transferMode ?? "transferencia"}
+        accounts={accounts}
+        balanceOf={(a) => (balancesReady ? balanceOf(a) : null)}
+        userId={auth.user?.id}
+      />
 
       <AccountDialog
         open={open}

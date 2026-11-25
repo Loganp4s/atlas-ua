@@ -8,6 +8,7 @@ import type {
   FinGoalContribution,
   FinRecurrence,
   FinTransaction,
+  FinTransfer,
 } from "./types";
 
 // Types for fin_* tables are regenerated after migration; cast for now.
@@ -111,6 +112,39 @@ export async function updateTransaction(
 export async function deleteTransaction(id: string): Promise<void> {
   const { error } = await sb.from("fin_transactions").delete().eq("id", id).eq("user_id", await uid());
   if (error) throw error;
+}
+
+/* -------- Transfers -------- */
+export async function listTransfers(): Promise<FinTransfer[]> {
+  return readAllPages<FinTransfer>((count) => sb
+    .from("fin_transfers")
+    .select("*", { count })
+    .order("transfer_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true }));
+}
+export interface TransferInput {
+  source_account_id: string;
+  destination_account_id: string;
+  amount: number;
+  transfer_date: string;
+  description: string | null;
+}
+export interface TransferResult { transfer_id: string; duplicate: boolean }
+/** Única forma de registrar transferências: RPC atômica e idempotente. */
+export async function createTransfer(input: TransferInput, requestId: string): Promise<TransferResult> {
+  await uid();
+  const { data, error } = await sb.rpc("create_fin_transfer", {
+    p_source_account_id: input.source_account_id,
+    p_destination_account_id: input.destination_account_id,
+    p_amount: input.amount,
+    p_transfer_date: input.transfer_date,
+    p_description: input.description,
+    p_request_id: requestId,
+  });
+  if (error) throw error;
+  if (!data || typeof data.transfer_id !== "string") throw new Error("Resposta inesperada ao confirmar a transferência.");
+  return data as TransferResult;
 }
 
 /* -------- Goals -------- */
@@ -249,6 +283,9 @@ export interface BalanceBucket {
   saidas: number;
   /** initial + entradas - saidas */
   balance: number;
+  /** Transferências recebidas/enviadas: movem dinheiro, não são receita nem despesa. */
+  transferIn: number;
+  transferOut: number;
   accountCount: number;
   transactionCount: number;
 }
@@ -268,12 +305,13 @@ export interface BalanceBreakdown {
 }
 
 function emptyBucket(): BalanceBucket {
-  return { initial: 0, entradas: 0, saidas: 0, balance: 0, accountCount: 0, transactionCount: 0 };
+  return { initial: 0, entradas: 0, saidas: 0, balance: 0, transferIn: 0, transferOut: 0, accountCount: 0, transactionCount: 0 };
 }
 
 export function computeBalanceBreakdown(
   accounts: FinAccount[],
   transactions: FinTransaction[],
+  transfers: FinTransfer[] = [],
 ): BalanceBreakdown {
   const active = emptyBucket();
   const archived = emptyBucket();
@@ -292,7 +330,14 @@ export function computeBalanceBreakdown(
     else b.saidas += v;
     b.transactionCount += 1;
   }
-  for (const b of [active, archived, unassigned]) b.balance = b.initial + b.entradas - b.saidas;
+  for (const t of transfers) {
+    const v = Number(t.amount) || 0;
+    ((t.source_account_id && byId.get(t.source_account_id)) || unassigned).transferOut += v;
+    ((t.destination_account_id && byId.get(t.destination_account_id)) || unassigned).transferIn += v;
+  }
+  for (const b of [active, archived, unassigned]) {
+    b.balance = b.initial + b.entradas - b.saidas + b.transferIn - b.transferOut;
+  }
   return {
     active,
     archived,
@@ -305,8 +350,9 @@ export function computeBalanceBreakdown(
 export function computeActiveBalance(
   accounts: FinAccount[],
   transactions: FinTransaction[],
+  transfers: FinTransfer[] = [],
 ): number {
-  return computeBalanceBreakdown(accounts, transactions).active.balance;
+  return computeBalanceBreakdown(accounts, transactions, transfers).active.balance;
 }
 
 /**
@@ -316,6 +362,7 @@ export function computeActiveBalance(
 export function computeBalance(
   accounts: FinAccount[],
   transactions: FinTransaction[],
+  transfers: FinTransfer[] = [],
 ): number {
-  return computeBalanceBreakdown(accounts, transactions).consolidated;
+  return computeBalanceBreakdown(accounts, transactions, transfers).consolidated;
 }

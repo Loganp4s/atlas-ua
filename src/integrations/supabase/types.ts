@@ -371,6 +371,57 @@ export type Database = {
           },
         ]
       }
+      fin_transfers: {
+        Row: {
+          amount: number
+          client_request_id: string | null
+          created_at: string
+          description: string | null
+          destination_account_id: string
+          id: string
+          source_account_id: string
+          transfer_date: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          client_request_id?: string | null
+          created_at?: string
+          description?: string | null
+          destination_account_id: string
+          id?: string
+          source_account_id: string
+          transfer_date: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          client_request_id?: string | null
+          created_at?: string
+          description?: string | null
+          destination_account_id?: string
+          id?: string
+          source_account_id?: string
+          transfer_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_transfers_destination_account_id_fkey"
+            columns: ["destination_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transfers_source_account_id_fkey"
+            columns: ["source_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       obj_history: {
         Row: {
           created_at: string
@@ -809,6 +860,17 @@ export type Database = {
           p_goal_id: string
           p_note?: string
           p_request_id?: string
+        }
+        Returns: Json
+      }
+      create_fin_transfer: {
+        Args: {
+          p_amount: number
+          p_description?: string
+          p_destination_account_id: string
+          p_request_id?: string
+          p_source_account_id: string
+          p_transfer_date: string
         }
         Returns: Json
       }

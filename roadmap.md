@@ -9,4 +9,4 @@
 - [x] Reconhecer entradas, saídas, contas, consultas e casos especiais.
 - [x] Confirmação editável antes de registrar em Finanças.
 - [x] Testes automatizados de interpretação e consultas.
-- [ ] Transferências, saques e aportes entre contas — aguardando decisão do usuário sobre mudança no banco.
+- [x] Etapa 1.4 — transferências entre contas (incl. saque/depósito via carteira): RPC atômica e idempotente, saldos integrados, histórico em Contas; 13 testes em PostgreSQL isolado + fluxo autenticado no app. Pendências: edição/exclusão de transferências, pagamento de fatura de cartão, Composer ainda não registra transferências. Não avançar para 1.5 sem autorização.

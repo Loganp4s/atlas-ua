@@ -166,9 +166,9 @@ export function worldCards(data: HomeData): WorldCard[] {
   const cards: WorldCard[] = [];
 
   /* Financeiro */
-  const hasFinance = data.accounts.length > 0 || data.transactions.length > 0;
+  const hasFinance = data.accounts.length > 0 || data.transactions.length > 0 || (data.transfers?.length ?? 0) > 0;
   if (hasFinance) {
-    const bd = computeBalanceBreakdown(data.accounts, data.transactions);
+    const bd = computeBalanceBreakdown(data.accounts, data.transactions, data.transfers ?? []);
     const pending = data.bills.filter((b) => b.status === "pendente").length;
     const hasActive = bd.active.accountCount > 0;
     cards.push({
