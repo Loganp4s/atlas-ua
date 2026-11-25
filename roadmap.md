@@ -1,4 +1,6 @@
 # Interpretação financeira do Atlas
+- [x] Etapa 1.3.1 — correções de idempotência estrita, concorrência e recuperação local implementadas; testes unitários, PostgreSQL isolado e fluxo Cloud autenticado com perda de resposta/reload verificados.
+- [ ] Encerramento integral 1.3.1/1.3 — parcialmente concluído: falta comprovar instalação completa em outro ambiente (nenhum destino/pipeline independente disponível); recuperação não cobre apagamento dos dados locais ou troca de dispositivo. Não avançar automaticamente.
 - [x] Auditoria 1.3 — aporte em meta atômico no banco (histórico + acumulado juntos), concorrência e propriedade testadas no banco real; aguardando autorização para 1.4.
 - [x] Pendência 1.3: aporte repetido com o mesmo código não duplica (idempotência no banco).
 - [x] Pendência 1.3: valor acumulado da meta só muda por aportes (bloqueado no banco e na edição).

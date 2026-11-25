@@ -15,6 +15,13 @@
       "when": 1795580728739,
       "tag": "0001_goal_contribution_idempotency_and_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795582608114,
+      "tag": "0002_strict_goal_contribution_idempotency",
+      "breakpoints": true
     }
   ]
 }

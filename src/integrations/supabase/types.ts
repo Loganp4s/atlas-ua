@@ -188,6 +188,7 @@ export type Database = {
           goal_id: string
           id: string
           note: string | null
+          result_current_amount: number | null
           user_id: string
         }
         Insert: {
@@ -198,6 +199,7 @@ export type Database = {
           goal_id: string
           id?: string
           note?: string | null
+          result_current_amount?: number | null
           user_id: string
         }
         Update: {
@@ -208,6 +210,7 @@ export type Database = {
           goal_id?: string
           id?: string
           note?: string | null
+          result_current_amount?: number | null
           user_id?: string
         }
         Relationships: [

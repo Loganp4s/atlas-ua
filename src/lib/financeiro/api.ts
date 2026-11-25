@@ -173,13 +173,16 @@ export async function addGoalContribution(
   contribution_date: string,
   note?: string | null,
   requestId?: string,
+  expectedUserId?: string,
 ): Promise<void> {
+  const userId = await uid();
+  if (expectedUserId && expectedUserId !== userId) throw new Error("A sessão mudou. Entre na conta deste aporte para confirmá-lo.");
   // Atomic: history insert + current_amount increment run in one DB transaction with a row lock.
   const { error } = await sb.rpc("add_fin_goal_contribution", {
     p_goal_id: goalId,
     p_amount: amount,
     p_contribution_date: contribution_date,
-    p_note: note ?? undefined,
+    p_note: note ?? null,
     ...(requestId ? { p_request_id: requestId } : {}),
   });
   if (error) throw error;

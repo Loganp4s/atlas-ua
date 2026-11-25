@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MoreVertical, Pencil, PiggyBank, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -24,17 +24,47 @@ import {
 import { GoalDialog } from "./GoalDialog";
 import { parseContributionAmount } from "@/lib/financeiro/contribution";
 import { confirmDelete, LoadError } from "@/components/atlas/ConfirmHost";
+import { useAuthUser } from "@/components/rotina/useAuthUser";
+import { clearPending, markPendingConflict, preparePending, readPending, withContributionLock, type PendingContribution } from "@/lib/financeiro/pending-contribution";
+
+const EMPTY_GOALS: FinGoal[] = [];
 
 export function MetasTab() {
   const qc = useQueryClient();
-  const pendingRequest = useRef<Record<string, { id: string; amount: number }>>({});
-  const { data: goals = [], isLoading, isError, refetch } = useQuery({
+  const auth = useAuthUser();
+  const userId = auth.user?.id;
+  const [pending, setPending] = useState<Record<string, PendingContribution>>({});
+  const [recoveryReady, setRecoveryReady] = useState(false);
+  const [recoveryError, setRecoveryError] = useState("");
+  const { data: goals = EMPTY_GOALS, isLoading, isError, refetch } = useQuery({
     queryKey: ["fin", "goals"],
     queryFn: listGoals,
   });
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<FinGoal | null>(null);
   const [contribAmount, setContribAmount] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    function recover() {
+      setRecoveryReady(false);
+      if (!userId) { setPending({}); return; }
+      try {
+        const found: Record<string, PendingContribution> = {};
+        for (const goal of goals) {
+          const p = readPending(localStorage, userId, goal.id);
+          if (p) found[goal.id] = p;
+        }
+        setPending(found);
+        setRecoveryError("");
+        setRecoveryReady(true);
+      } catch {
+        setRecoveryError("Não foi possível recuperar as tentativas de aporte. Nenhum novo aporte será enviado até recuperar o armazenamento deste navegador.");
+      }
+    }
+    recover();
+    window.addEventListener("storage", recover);
+    return () => window.removeEventListener("storage", recover);
+  }, [userId, goals]);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["fin", "goals"] });
 
@@ -64,11 +94,26 @@ export function MetasTab() {
     onError: (e: Error) => toast.error(e.message),
   });
   const contribMut = useMutation({
-    mutationFn: ({ id, amount, requestId }: { id: string; amount: number; requestId: string }) =>
-      addGoalContribution(id, amount, todayIso(), null, requestId),
-    onSuccess: (_d, v) => {
-      delete pendingRequest.current[v.id];
-      setContribAmount((m) => ({ ...m, [v.id]: "" }));
+    mutationFn: async ({ goalId, amount, userId: owner }: { goalId: string; amount: number; userId: string }) =>
+      withContributionLock(owner, goalId, async () => {
+        // Re-read under a cross-tab lock; never replace an unresolved operation.
+        const p = preparePending(localStorage, owner, goalId, amount, todayIso(), () => crypto.randomUUID());
+        setPending((m) => ({ ...m, [goalId]: p }));
+        try {
+          await addGoalContribution(p.goalId, p.amount, p.date, p.note, p.requestId, p.userId);
+        } catch (error) {
+          if (typeof error === "object" && error !== null && "code" in error && error.code === "PT409") {
+            markPendingConflict(localStorage, p);
+            setPending((m) => ({ ...m, [goalId]: { ...p, conflict: true } }));
+          }
+          throw error; // All unknown outcomes retain the exact persisted operation.
+        }
+        clearPending(localStorage, p);
+        return p;
+      }),
+    onSuccess: (p) => {
+      setPending((m) => { const next = { ...m }; if (next[p.goalId]?.requestId === p.requestId) delete next[p.goalId]; return next; });
+      setContribAmount((m) => ({ ...m, [p.goalId]: "" }));
       toast.success("Aporte registrado");
       invalidate();
     },
@@ -98,6 +143,8 @@ export function MetasTab() {
         </Button>
       </div>
 
+      {recoveryError && <p role="alert" className="text-xs text-destructive">{recoveryError}</p>}
+
       {isError ? (
         <LoadError onRetry={() => refetch()} />
       ) : isLoading ? (
@@ -117,7 +164,8 @@ export function MetasTab() {
                 (Number(g.current_amount) / Math.max(1, Number(g.target_amount))) * 100,
               ),
             );
-            const val = contribAmount[g.id] ?? "";
+            const attempt = pending[g.id];
+            const val = attempt ? String(attempt.amount) : contribAmount[g.id] ?? "";
             return (
               <Card key={g.id} className="flex flex-col gap-3">
                 <div className="flex items-start gap-3">
@@ -151,6 +199,7 @@ export function MetasTab() {
                         <Pencil className="h-4 w-4" /> Editar
                       </DropdownMenuItem>
                       <DropdownMenuItem
+                        disabled={!!attempt || contribMut.isPending}
                         onClick={async () => { if (await confirmDelete("Excluir meta?")) deleteMut.mutate(g.id); }}
                         className="text-destructive focus:text-destructive"
                       >
@@ -176,6 +225,8 @@ export function MetasTab() {
                     step="0.01"
                     placeholder="R$ aporte"
                     value={val}
+                    aria-label={`Aporte em ${g.name}`}
+                    disabled={!!attempt || !recoveryReady || contribMut.isPending}
                     onChange={(e) =>
                       setContribAmount({ ...contribAmount, [g.id]: e.target.value })
                     }
@@ -183,20 +234,17 @@ export function MetasTab() {
                   />
                   <Button
                     size="sm"
-                    disabled={parseContributionAmount(val) === null || contribMut.isPending}
+                    disabled={!userId || !recoveryReady || !!attempt?.conflict || parseContributionAmount(val) === null || contribMut.isPending}
                     onClick={() => {
                       const amount = parseContributionAmount(val);
-                      if (amount === null) return;
-                      // Reuse the same request id on retry so a lost response never duplicates the contribution.
-                      const prev = pendingRequest.current[g.id];
-                      const requestId = prev && prev.amount === amount ? prev.id : crypto.randomUUID();
-                      pendingRequest.current[g.id] = { id: requestId, amount };
-                      contribMut.mutate({ id: g.id, amount, requestId });
+                      if (amount === null || !userId) return;
+                      contribMut.mutate({ goalId: g.id, amount, userId });
                     }}
                   >
-                    Aportar
+                    {attempt ? "Confirmar aporte" : "Aportar"}
                   </Button>
                 </div>
+                {attempt && <p role="status" className="text-xs text-muted-foreground">{attempt.conflict ? "Conflito confirmado. Este aporte precisa ser verificado; nenhum novo valor foi enviado." : "Há um aporte aguardando confirmação. Confirme esta tentativa antes de informar outro valor."}</p>}
               </Card>
             );
           })}
