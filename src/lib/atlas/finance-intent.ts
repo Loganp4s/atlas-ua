@@ -29,7 +29,8 @@ export type FinanceQuery =
   | "entradas_mes"
   | "despesas"
   | "meta"
-  | "conta_maior";
+  | "conta_maior"
+  | "parcelas";
 
 export interface FinanceIntent {
   kind: FinanceKind;
@@ -144,6 +145,7 @@ export function parseAmount(text: string): { value: number; explicit: boolean } 
 /* ---------------- vocabulary ---------------- */
 
 const QUERY_PATTERNS: Array<{ re: RegExp; query: FinanceQuery }> = [
+  { re: /^(?:quanto|quais|qual)\b.*\bparcel(?:as|amentos?)\b|^(?:minhas|meus)\s+parcel(?:as|amentos)\??$/, query: "parcelas" },
   { re: /\bqual\s+(?:e\s+)?(?:o\s+)?meu\s+saldo\b|\bmeu\s+saldo\b.*\?|^saldo\??$/, query: "saldo" },
   { re: /^quanto\s+(?:eu\s+)?tenho(?:\s+(?:de\s+dinheiro|na\s+conta|em\s+conta|no\s+total|guardado|no\s+banco))?\s*\??$/, query: "saldo" },
   { re: /^quanto\s+dinheiro\s+(?:eu\s+)?tenho\b/, query: "saldo" },

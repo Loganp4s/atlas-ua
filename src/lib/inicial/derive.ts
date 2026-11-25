@@ -1,7 +1,8 @@
 import type { HomeData } from "./useHomeData";
 import { computeProgress } from "@/lib/objetivos/meta";
 import { computeBalanceBreakdown } from "@/lib/financeiro/api";
-import { formatBRL } from "@/lib/financeiro/format";
+import { formatBRL, todayIso } from "@/lib/financeiro/format";
+import { summarizeInstallments } from "@/lib/financeiro/installments";
 import { currentStreak, todayYmd } from "@/lib/rotina/streak";
 import { coversDate, eventEndDate, periodLabel } from "@/lib/rotina/events";
 
@@ -171,6 +172,8 @@ export function worldCards(data: HomeData): WorldCard[] {
     const bd = computeBalanceBreakdown(data.accounts, data.transactions, data.transfers ?? []);
     const pending = data.bills.filter((b) => b.status === "pendente").length;
     const hasActive = bd.active.accountCount > 0;
+    const plans = data.installmentPlans ?? [];
+    const soon = plans.length > 0 ? summarizeInstallments(plans, data.installments ?? [], todayIso(), 30) : null;
     cards.push({
       key: "financeiro",
       label: hasActive ? "Financeiro · contas ativas" : "Financeiro",
@@ -178,6 +181,8 @@ export function worldCards(data: HomeData): WorldCard[] {
       secondary:
         !hasActive
           ? `registros: ${formatBRL(bd.consolidated)}`
+          : soon && soon.commitments > 0
+          ? `${formatBRL(soon.commitments)} em parcelas nos próximos 30 dias`
           : pending > 0
           ? `${pending} ${pending === 1 ? "conta a pagar" : "contas a pagar"}`
           : "nada pendente por aqui",

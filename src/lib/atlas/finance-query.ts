@@ -3,8 +3,9 @@
  * Usa somente o que o usuário registrou em Finanças; nunca inventa valores.
  */
 import { computeBalanceBreakdown } from "@/lib/financeiro/api";
-import { formatBRL } from "@/lib/financeiro/format";
-import type { FinAccount, FinGoal, FinTransaction, FinTransfer } from "@/lib/financeiro/types";
+import { formatBRL, formatDateBR } from "@/lib/financeiro/format";
+import type { FinAccount, FinGoal, FinInstallment, FinInstallmentPlan, FinTransaction, FinTransfer } from "@/lib/financeiro/types";
+import { summarizeInstallments } from "@/lib/financeiro/installments";
 import { normalize, type FinanceQuery } from "./finance-intent";
 
 export interface FinanceSnapshot {
@@ -13,6 +14,9 @@ export interface FinanceSnapshot {
   goals: FinGoal[];
   /** Opcional: transferências entre contas (não são receita nem despesa). */
   transfers?: FinTransfer[];
+  /** Opcional: parcelamentos (compromissos previstos, não despesas realizadas). */
+  installmentPlans?: FinInstallmentPlan[];
+  installments?: FinInstallment[];
 }
 
 const SOURCE_NOTE = "Calculado com o que você registrou em Finanças.";
@@ -98,6 +102,19 @@ export function answerFinanceQuery(query: FinanceQuery, data: FinanceSnapshot, n
       if (inc.length === 0) return "Você não registrou entradas neste mês.";
       const total = inc.reduce((s, t) => s + Number(t.amount), 0);
       return `Neste mês você registrou ${formatBRL(total)} em entradas (${inc.length} ${inc.length === 1 ? "movimentação" : "movimentações"}). ${SOURCE_NOTE}`;
+    }
+    case "parcelas": {
+      const plans = data.installmentPlans ?? [];
+      if (plans.length === 0) return "Você não tem compras parceladas registradas em Finanças.";
+      const ymd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      const s30 = summarizeInstallments(plans, data.installments ?? [], ymd, 30);
+      const all = summarizeInstallments(plans, data.installments ?? [], ymd, 36500);
+      if (all.upcomingCount === 0) return `Não há parcelas em aberto. ${SOURCE_NOTE}`;
+      const next = all.next[0];
+      let msg = `Você tem ${formatBRL(s30.commitments)} em parcelas previstas para os próximos 30 dias e ${formatBRL(all.commitments)} em aberto no total (${all.upcomingCount} ${all.upcomingCount === 1 ? "parcela" : "parcelas"}).`;
+      if (all.overdueCount > 0) msg += ` ${formatBRL(all.overdue)} já venceram e aguardam sua confirmação de pagamento.`;
+      if (next) msg += ` Próximo vencimento: ${formatDateBR(next.due_date)} (${formatBRL(Number(next.amount))}).`;
+      return `${msg} São previsões — só saem do saldo quando você confirma o pagamento. ${SOURCE_NOTE}`;
     }
     case "meta": {
       if (goals.length === 0) return "Você ainda não tem metas financeiras em Finanças.";

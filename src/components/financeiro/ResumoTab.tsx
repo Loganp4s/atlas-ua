@@ -6,6 +6,8 @@ import {
   computeBalanceBreakdown,
   listAccounts,
   listBills,
+  listInstallmentPlans,
+  listInstallments,
   listTransactions,
   listTransfers,
 } from "@/lib/financeiro/api";
@@ -15,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { useAuthUser } from "@/components/rotina/useAuthUser";
 import { TransferDialog, type TransferMode } from "./TransferDialog";
 import { accountBalance } from "@/lib/atlas/finance-query";
+import { ForecastCard } from "./ForecastCard";
+import { INSTALLMENT_KEYS } from "@/lib/financeiro/installment-actions";
 
 export function ResumoTab() {
   const auth = useAuthUser();
@@ -24,6 +28,8 @@ export function ResumoTab() {
   const billsQ = useQuery({ queryKey: ["fin", "bills"], queryFn: listBills });
   const transfersQ = useQuery({ queryKey: ["fin", "transfers"], queryFn: listTransfers });
   const transfers = transfersQ.data;
+  const plansQ = useQuery({ queryKey: INSTALLMENT_KEYS.plans, queryFn: listInstallmentPlans });
+  const instQ = useQuery({ queryKey: INSTALLMENT_KEYS.items, queryFn: listInstallments });
 
   const accounts = accountsQ.data ?? [];
   const tx = txQ.data ?? [];
@@ -102,6 +108,10 @@ export function ResumoTab() {
           />
         </div>
       </Card>
+
+      {plansQ.data && instQ.data ? (
+        <ForecastCard available={stats.breakdown.active.balance} plans={plansQ.data} installments={instQ.data} />
+      ) : null}
 
       <section aria-label="Movimentar entre contas">
         <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Movimentar entre contas</h3>

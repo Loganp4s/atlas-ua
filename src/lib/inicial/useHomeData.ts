@@ -7,7 +7,7 @@ import {
   listTasks,
 } from "@/lib/rotina/api";
 import { listAllSteps, listObjectives } from "@/lib/objetivos/api";
-import { listAccounts, listBills, listTransactions, listTransfers } from "@/lib/financeiro/api";
+import { listAccounts, listBills, listInstallmentPlans, listInstallments, listTransactions, listTransfers } from "@/lib/financeiro/api";
 
 /**
  * Reaproveita exatamente as mesmas queryKeys dos módulos, então a Inicial
@@ -57,7 +57,12 @@ export function useHomeData(enabled: boolean) {
   const bills = useQuery({ queryKey: ["fin", "bills"], queryFn: listBills, ...common });
   const transfers = useQuery({ queryKey: ["fin", "transfers"], queryFn: listTransfers, ...common });
 
+  const installmentPlans = useQuery({ queryKey: ["fin", "installment-plans"], queryFn: listInstallmentPlans, ...common });
+  const installments = useQuery({ queryKey: ["fin", "installments"], queryFn: listInstallments, ...common });
+
   return {
+    installmentPlans: installmentPlans.data ?? [],
+    installments: installments.data ?? [],
     tasks: tasks.data ?? [],
     events: events.data ?? [],
     habits: habits.data ?? [],
@@ -78,6 +83,8 @@ export function useHomeData(enabled: boolean) {
       notes.isLoading ||
       steps.isLoading ||
       accounts.isLoading ||
+      installmentPlans.isLoading ||
+      installments.isLoading ||
       transactions.isLoading ||
       transfers.isLoading ||
       bills.isLoading,

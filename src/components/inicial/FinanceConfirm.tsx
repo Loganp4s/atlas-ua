@@ -17,6 +17,9 @@ import { formatBRL, formatDateBR, todayIso } from "@/lib/financeiro/format";
 import type { FinTransaction, FinTxType } from "@/lib/financeiro/types";
 import type { FinanceIntent } from "@/lib/atlas/finance-intent";
 import { matchAccounts } from "@/lib/atlas/finance-query";
+import { InstallmentPreview } from "@/components/financeiro/InstallmentPreview";
+import { dbErrorMessage, submitInstallmentPlan } from "@/lib/financeiro/installment-actions";
+import { supabase } from "@/integrations/supabase/client";
 
 const NO_ACCOUNT = "__none__";
 
@@ -65,7 +68,6 @@ export function FinanceConfirm({
   const [description, setDescription] = useState(intent.description);
   const [category, setCategory] = useState(intent.category ?? "");
   const [date, setDate] = useState(intent.date ?? (isBill ? "" : todayIso()));
-  const [installmentMode, setInstallmentMode] = useState<"" | "total" | "parcela">("");
   const [payBill, setPayBill] = useState(false);
   const [saving, setSaving] = useState(false);
   const createdTx = useRef<FinTransaction | null>(null);
@@ -94,6 +96,8 @@ export function FinanceConfirm({
   }, [billsQ.data, intent.kind, value]);
 
   const installments = intent.installments && intent.installments > 1 ? intent.installments : undefined;
+  // Compra parcelada: o valor é sempre o total (mesma regra e mesma API de Finanças).
+  const isPlan = !!installments && type === "saida";
   const accountName = accounts.find((a) => a.id === accountId)?.name;
 
   const amountText = value > 0 ? formatBRL(value) : "um valor ainda não informado";
@@ -101,6 +105,7 @@ export function FinanceConfirm({
   const when = dateLabel(date);
   const prompt = isBill
     ? `Entendi! É uma conta a pagar${descText} de ${amountText}${when ? `, com vencimento ${when === "hoje" || when === "ontem" ? when : `em ${when}`}` : ""}. Posso adicioná-la em Finanças › Contas?`
+    : isPlan ? `Entendi! Uma compra parcelada${descText} de ${amountText} em ${installments}x. Confira as parcelas abaixo — nada sai do saldo até você confirmar cada pagamento. Posso criar o parcelamento?`
     : `Entendi! ${type === "entrada" ? `Você recebeu ${amountText}` : `Você teve uma saída de ${amountText}`}${descText}. Posso registrar essa ${type === "entrada" ? "entrada" : "saída"}${accountName ? ` em ${accountName}` : ""}${when ? ` com a data de ${when}` : ""}?`;
 
   async function submit() {
@@ -110,7 +115,8 @@ export function FinanceConfirm({
       if (!description.trim()) return toast.error("Dê um nome para a conta.");
     } else {
       if (!accountId) return toast.error("Escolha em qual conta registrar.");
-      if (installments && !installmentMode) return toast.error("Diga se o valor é o total da compra ou de cada parcela.");
+      if (isPlan && accountId === NO_ACCOUNT) return toast.error("Escolha a conta do parcelamento.");
+      if (isPlan && !description.trim()) return toast.error("Descreva a compra.");
     }
     setSaving(true);
     try {
@@ -127,7 +133,17 @@ export function FinanceConfirm({
         onDone(`Adicionei "${description.trim()}" (${formatBRL(value)}) em Finanças › Contas, com vencimento em ${formatDateBR(date)}. Nada foi pago.`);
         return;
       }
-      const parcel = installments && installmentMode === "total" ? Math.round((value / installments) * 100) / 100 : value;
+      if (isPlan && installments) {
+        const { data } = await supabase.auth.getUser();
+        if (!data.user) throw new Error("Entre na sua conta para continuar.");
+        const r = await submitInstallmentPlan(qc, data.user.id, {
+          account_id: accountId, description: description.trim(), category: category.trim() || null,
+          total_amount: value, installment_count: installments, first_due_date: date,
+        });
+        onDone(`${r.duplicate ? "Esse parcelamento já estava registrado — nada foi duplicado." : `Criei o parcelamento "${description.trim()}": ${formatBRL(value)} em ${installments} parcelas, a primeira em ${date.split("-").reverse().join("/")}.`} As parcelas ficam previstas em Finanças › Movimentações e só saem do saldo quando você confirmar cada pagamento.`);
+        return;
+      }
+      const parcel = value;
       // Keep the created movement so a retry (e.g. failed bill update) never duplicates it.
       if (!createdTx.current) {
         createdTx.current = await createTransaction({
@@ -138,8 +154,8 @@ export function FinanceConfirm({
           description: description.trim() || null,
           tx_date: date,
           recurrence: "none",
-          installment_total: installments ?? null,
-          installment_index: installments ? 1 : null,
+          installment_total: null,
+          installment_index: null,
         });
         await Promise.all([
           qc.invalidateQueries({ queryKey: ["fin", "tx"] }),
@@ -151,13 +167,13 @@ export function FinanceConfirm({
         await qc.invalidateQueries({ queryKey: ["fin", "bills"] });
       }
       const where = accountName ? ` (${accountName})` : "";
-      const inst = installments ? ` — parcela 1 de ${installments}, ${formatBRL(parcel)}` : "";
-      onDone(`Registrei a ${type === "entrada" ? "entrada" : "saída"} de ${formatBRL(installments ? parcel : value)} em Finanças › Movimentações${where}${inst}.${payBill && pendingMatch ? ` Também marquei "${pendingMatch.name}" como paga.` : ""}`);
+      const inst = "";
+      onDone(`Registrei a ${type === "entrada" ? "entrada" : "saída"} de ${formatBRL(parcel)} em Finanças › Movimentações${where}${inst}.${payBill && pendingMatch ? ` Também marquei "${pendingMatch.name}" como paga.` : ""}`);
     } catch (err) {
       toast.error(
         createdTx.current
           ? "A movimentação foi registrada, mas não consegui marcar a conta como paga. Tente de novo."
-          : err instanceof Error ? err.message : "Não consegui registrar agora.",
+          : dbErrorMessage(err),
       );
     } finally {
       setSaving(false);
@@ -208,29 +224,17 @@ export function FinanceConfirm({
 
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="fc-amount">{installments ? "Valor informado (R$)" : "Valor (R$)"}</Label>
+            <Label htmlFor="fc-amount">{isPlan ? "Valor total da compra (R$)" : "Valor (R$)"}</Label>
             <Input id="fc-amount" inputMode="decimal" value={amount} disabled={locked} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="fc-date">{isBill ? "Vencimento" : "Data"}</Label>
+            <Label htmlFor="fc-date">{isBill ? "Vencimento" : isPlan ? "1º vencimento" : "Data"}</Label>
             <Input id="fc-date" type="date" value={date} disabled={locked} onChange={(e) => setDate(e.target.value)} />
           </div>
         </div>
 
-        {installments ? (
-          <div className="flex flex-col gap-1.5">
-            <Label>Compra em {installments}x — esse valor é:</Label>
-            <div className="flex gap-1.5">
-              {([["total", "Total da compra"], ["parcela", "De cada parcela"]] as const).map(([v, label]) => (
-                <Button key={v} type="button" size="sm" variant={installmentMode === v ? "default" : "outline"} aria-pressed={installmentMode === v} disabled={locked} onClick={() => setInstallmentMode(v)} className="flex-1 rounded-full">
-                  {label}
-                </Button>
-              ))}
-            </div>
-            {installmentMode === "total" && value > 0 ? (
-              <p className="text-xs text-muted-foreground">Será registrada a parcela 1 de {installments}: {formatBRL(Math.round((value / installments) * 100) / 100)}.</p>
-            ) : null}
-          </div>
+        {isPlan && installments && value > 0 && isValidDate(date) ? (
+          <InstallmentPreview total={value} count={installments} first={date} />
         ) : null}
 
         {!isBill ? (
@@ -244,7 +248,7 @@ export function FinanceConfirm({
                 {accounts.map((a) => (
                   <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                 ))}
-                <SelectItem value={NO_ACCOUNT}>Sem conta específica</SelectItem>
+                {!isPlan ? <SelectItem value={NO_ACCOUNT}>Sem conta específica</SelectItem> : null}
               </SelectContent>
             </Select>
             {accountsQ.isError ? (
