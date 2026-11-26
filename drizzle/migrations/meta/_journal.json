@@ -64,6 +64,20 @@
       "when": 1795659893663,
       "tag": "0008_installment_payment_date_validation",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795718098001,
+      "tag": "0009_installment_refund_and_delete",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795718210612,
+      "tag": "0010_installment_edit_block_after_refund",
+      "breakpoints": true
     }
   ]
 }

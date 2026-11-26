@@ -17,6 +17,7 @@ import {
   YAxis,
 } from "recharts";
 import { listTransactions } from "@/lib/financeiro/api";
+import { affectsExpense, expenseValue, incomeValue } from "@/lib/financeiro/flows";
 import { formatBRL } from "@/lib/financeiro/format";
 import { Card, EmptyState } from "@/components/atlas/AppShell";
 import { LineChart as LineIcon } from "lucide-react";
@@ -31,12 +32,13 @@ export function RelatoriosTab() {
 
   const { byCategory, monthly, cashflow } = useMemo(() => {
     const cats: Record<string, number> = {};
-    tx.filter((t) => t.type === "saida").forEach((t) => {
+    tx.filter(affectsExpense).forEach((t) => {
       const k = t.category || "Outros";
-      cats[k] = (cats[k] || 0) + Number(t.amount);
+      cats[k] = (cats[k] || 0) + expenseValue(t);
     });
     const byCategory = Object.entries(cats)
       .map(([name, value]) => ({ name, value }))
+      .filter((c) => c.value > 0)
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
 
@@ -44,7 +46,8 @@ export function RelatoriosTab() {
     tx.forEach((t) => {
       const k = t.tx_date.slice(0, 7);
       months[k] = months[k] || { entrada: 0, saida: 0 };
-      months[k][t.type] += Number(t.amount);
+      months[k].entrada += incomeValue(t);
+      months[k].saida += expenseValue(t);
     });
     const monthly = Object.entries(months)
       .sort(([a], [b]) => a.localeCompare(b))

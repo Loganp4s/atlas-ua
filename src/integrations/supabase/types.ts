@@ -327,6 +327,10 @@ export type Database = {
           paid_at: string | null
           pay_request_id: string | null
           plan_id: string
+          refund_request_id: string | null
+          refund_transaction_id: string | null
+          refunded_at: string | null
+          refunded_on: string | null
           status: string
           transaction_id: string | null
           updated_at: string
@@ -343,6 +347,10 @@ export type Database = {
           paid_at?: string | null
           pay_request_id?: string | null
           plan_id: string
+          refund_request_id?: string | null
+          refund_transaction_id?: string | null
+          refunded_at?: string | null
+          refunded_on?: string | null
           status?: string
           transaction_id?: string | null
           updated_at?: string
@@ -359,6 +367,10 @@ export type Database = {
           paid_at?: string | null
           pay_request_id?: string | null
           plan_id?: string
+          refund_request_id?: string | null
+          refund_transaction_id?: string | null
+          refunded_at?: string | null
+          refunded_on?: string | null
           status?: string
           transaction_id?: string | null
           updated_at?: string
@@ -377,6 +389,13 @@ export type Database = {
             columns: ["plan_id", "user_id"]
             isOneToOne: false
             referencedRelation: "fin_installment_plans"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "fin_installments_refund_tx_fk"
+            columns: ["refund_transaction_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fin_transactions"
             referencedColumns: ["id", "user_id"]
           },
           {
@@ -453,6 +472,7 @@ export type Database = {
           installment_index: number | null
           installment_total: number | null
           recurrence: Database["public"]["Enums"]["fin_recurrence"]
+          reversal_of_transaction_id: string | null
           tx_date: string
           type: Database["public"]["Enums"]["fin_tx_type"]
           updated_at: string
@@ -469,6 +489,7 @@ export type Database = {
           installment_index?: number | null
           installment_total?: number | null
           recurrence?: Database["public"]["Enums"]["fin_recurrence"]
+          reversal_of_transaction_id?: string | null
           tx_date?: string
           type: Database["public"]["Enums"]["fin_tx_type"]
           updated_at?: string
@@ -485,6 +506,7 @@ export type Database = {
           installment_index?: number | null
           installment_total?: number | null
           recurrence?: Database["public"]["Enums"]["fin_recurrence"]
+          reversal_of_transaction_id?: string | null
           tx_date?: string
           type?: Database["public"]["Enums"]["fin_tx_type"]
           updated_at?: string
@@ -497,6 +519,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "fin_accounts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transactions_reversal_fk"
+            columns: ["reversal_of_transaction_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fin_transactions"
+            referencedColumns: ["id", "user_id"]
           },
         ]
       }
@@ -1019,6 +1048,10 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_fin_installment_plan: {
+        Args: { p_plan_id: string }
+        Returns: Json
+      }
       fin_installment_due_date: {
         Args: { p_first: string; p_number: number }
         Returns: string
@@ -1032,6 +1065,14 @@ export type Database = {
           p_account_id: string
           p_installment_id: string
           p_paid_date: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      refund_fin_installment: {
+        Args: {
+          p_installment_id: string
+          p_refund_date: string
           p_request_id: string
         }
         Returns: Json

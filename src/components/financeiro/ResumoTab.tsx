@@ -19,6 +19,7 @@ import { TransferDialog, type TransferMode } from "./TransferDialog";
 import { accountBalance } from "@/lib/atlas/finance-query";
 import { ForecastCard } from "./ForecastCard";
 import { INSTALLMENT_KEYS } from "@/lib/financeiro/installment-actions";
+import { expenseValue, incomeValue } from "@/lib/financeiro/flows";
 
 export function ResumoTab() {
   const auth = useAuthUser();
@@ -39,12 +40,8 @@ export function ResumoTab() {
     const now = new Date();
     const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const monthTx = tx.filter((t) => t.tx_date.startsWith(monthKey));
-    const receitas = monthTx
-      .filter((t) => t.type === "entrada")
-      .reduce((s, t) => s + Number(t.amount), 0);
-    const despesas = monthTx
-      .filter((t) => t.type === "saida")
-      .reduce((s, t) => s + Number(t.amount), 0);
+    const receitas = monthTx.reduce((s, t) => s + incomeValue(t), 0);
+    const despesas = monthTx.reduce((s, t) => s + expenseValue(t), 0);
     return {
       breakdown: computeBalanceBreakdown(accounts, tx, transfers ?? []),
       receitas,

@@ -4,7 +4,7 @@
  * atualiza os caches. Sucesso só é informado após resposta do banco.
  */
 import type { QueryClient } from "@tanstack/react-query";
-import { createInstallmentPlan, payInstallment, type InstallmentPlanInput } from "./api";
+import { createInstallmentPlan, deleteInstallmentPlan, payInstallment, refundInstallment, type InstallmentPlanInput } from "./api";
 import { validatePlanInput } from "./installments";
 import { clearPendingOp, isDefinitiveDbError, preparePendingOp } from "./pending-installment";
 
@@ -63,6 +63,35 @@ export async function submitInstallmentPayment(qc: QueryClient, userId: string, 
       if ((e as { code?: string }).code === "PT410") await refreshInstallmentCaches(qc);
     }
     throw e;
+  }
+}
+
+/** Estorno de parcela paga: mesma chave em toda repetição; o banco nunca estorna duas vezes. */
+export async function submitInstallmentRefund(qc: QueryClient, userId: string, installmentId: string, refundDate: string) {
+  const pending = preparePendingOp(store(), "installment-refund", userId, installmentId, { installmentId }, () => crypto.randomUUID());
+  try {
+    const r = await refundInstallment(installmentId, refundDate, pending.requestId);
+    clearPendingOp(store(), "installment-refund", pending, installmentId);
+    await refreshInstallmentCaches(qc);
+    return r;
+  } catch (e) {
+    if (isDefinitiveDbError(e)) {
+      clearPendingOp(store(), "installment-refund", pending, installmentId);
+      await refreshInstallmentCaches(qc);
+    }
+    throw e;
+  }
+}
+export function hasPendingRefund(userId: string, installmentId: string): boolean {
+  try { return window.localStorage.getItem(`atlas:pending-installment-refund:v1:${userId}:${installmentId}`) !== null; } catch { return false; }
+}
+
+/** Exclusão definitiva (só sem parcelas pagas). Repetir após sucesso só informa "não encontrado". */
+export async function submitPlanDelete(qc: QueryClient, planId: string) {
+  try {
+    return await deleteInstallmentPlan(planId);
+  } finally {
+    await refreshInstallmentCaches(qc);
   }
 }
 

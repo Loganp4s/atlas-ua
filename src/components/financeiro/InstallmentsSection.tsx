@@ -11,16 +11,17 @@ import { confirmDelete } from "@/components/atlas/ConfirmHost";
 import { cancelInstallmentPlan, updateInstallmentPlan } from "@/lib/financeiro/api";
 import type { FinAccount, FinInstallment, FinInstallmentPlan } from "@/lib/financeiro/types";
 import { formatBRL, formatDateBR, todayIso } from "@/lib/financeiro/format";
-import { MAX_INSTALLMENTS, STATE_LABEL, installmentState, planProgress, validatePlanInput } from "@/lib/financeiro/installments";
+import { MAX_INSTALLMENTS, STATE_LABEL, canDeletePlan, installmentState, planProgress, validatePlanInput } from "@/lib/financeiro/installments";
 import {
-  dbErrorMessage, discardPendingPayment, readPendingPayment, refreshInstallmentCaches, submitInstallmentPayment,
+  dbErrorMessage, discardPendingPayment, hasPendingRefund, readPendingPayment, refreshInstallmentCaches, submitInstallmentPayment,
+  submitInstallmentRefund, submitPlanDelete,
 } from "@/lib/financeiro/installment-actions";
 import { InstallmentPreview } from "./InstallmentPreview";
 
 const PLAN_STATUS: Record<FinInstallmentPlan["status"], string> = { ativo: "Em andamento", concluido: "Quitado", cancelado: "Cancelado" };
 const STATE_TONE: Record<string, string> = {
   prevista: "text-muted-foreground", pendente: "text-primary", atrasada: "text-destructive",
-  paga: "text-emerald-600", cancelada: "text-muted-foreground line-through",
+  paga: "text-emerald-600", cancelada: "text-muted-foreground line-through", estornada: "text-muted-foreground",
 };
 
 export function InstallmentsSection({ plans, installments, accounts, userId, openPlanId, onOpenPlan }: {
@@ -104,6 +105,38 @@ function PlanDialog({ plan, items, accounts, userId, onClose }: {
     } catch (e) { toast.error(dbErrorMessage(e)); } finally { setBusy(false); }
   }
 
+  async function refund(i: FinInstallment) {
+    if (!userId) return toast.error("Entre na sua conta para confirmar.");
+    const acc = accounts.find((a) => a.id === i.paid_account_id);
+    if (!(await confirmDelete(
+      `Estornar o pagamento da parcela ${i.number}/${plan.installment_count}?`,
+      `${formatBRL(Number(i.amount))} pagos em ${i.paid_at ? formatDateBR(i.paid_at) : "—"} voltam para ${acc ? acc.name : "a conta do pagamento"} como estorno (não é uma receita). O pagamento original continua no histórico.`,
+      "Estornar pagamento"))) return;
+    setBusy(true);
+    try {
+      const r = await submitInstallmentRefund(qc, userId, i.id, today);
+      toast.success(r.duplicate ? "Esse estorno já estava registrado. Nada foi duplicado." : "Pagamento estornado.");
+    } catch (e) { toast.error(dbErrorMessage(e)); } finally { setBusy(false); }
+  }
+
+  async function remove() {
+    if (!(await confirmDelete("Excluir parcelamento?",
+      pr.refundedCount > 0
+        ? "O parcelamento e suas parcelas serão removidos. Os pagamentos estornados e seus estornos continuam no extrato."
+        : "O parcelamento e todas as suas parcelas serão removidos definitivamente. Nenhuma movimentação é afetada.",
+      "Excluir parcelamento"))) return;
+    setBusy(true);
+    try {
+      await submitPlanDelete(qc, plan.id);
+      toast.success("Parcelamento excluído.");
+      onClose();
+    } catch (e) {
+      if ((e as { code?: string }).code === "P0002") { toast.success("Parcelamento já havia sido excluído."); onClose(); }
+      else toast.error(dbErrorMessage(e));
+    } finally { setBusy(false); }
+  }
+  const deletable = canDeletePlan(items);
+
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto">
@@ -131,21 +164,32 @@ function PlanDialog({ plan, items, accounts, userId, onClose }: {
                       <span className="block text-foreground">{formatBRL(Number(i.amount))}</span>
                       <span className="block text-muted-foreground">
                         vence {formatDateBR(i.due_date)}{i.paid_at ? ` · paga em ${formatDateBR(i.paid_at)}` : ""}
+                        {i.refunded_on ? ` · estornada em ${formatDateBR(i.refunded_on)}` : ""}
                       </span>
                     </span>
                     <span className={`shrink-0 ${STATE_TONE[st]}`}>{STATE_LABEL[st]}</span>
                     {i.status === "aberta" && plan.status === "ativo" ? (
                       <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => setPaying(i)}>Pagar</Button>
                     ) : null}
+                    {i.status === "paga" ? (
+                      <Button size="sm" variant="ghost" className="h-7 px-2" disabled={busy}
+                        onClick={() => void refund(i)}>{userId && hasPendingRefund(userId, i.id) ? "Repetir estorno" : "Estornar"}</Button>
+                    ) : null}
                   </li>
                 );
               })}
             </ol>
-            {plan.status === "ativo" ? (
-              <DialogFooter className="gap-2 sm:justify-between">
+            <DialogFooter className="flex-wrap gap-2 sm:justify-between">
+              {deletable ? (
+                <Button variant="ghost" size="sm" disabled={busy} onClick={() => void remove()} className="text-destructive">Excluir parcelamento</Button>
+              ) : null}
+              {plan.status === "ativo" ? (<>
                 <Button variant="ghost" size="sm" disabled={busy} onClick={() => void cancel()} className="text-destructive">Cancelar parcelamento</Button>
-                <Button variant="outline" size="sm" disabled={busy} onClick={() => setEditing(true)}>Editar</Button>
-              </DialogFooter>
+                <Button variant="outline" size="sm" disabled={busy || pr.refundedCount > 0} onClick={() => setEditing(true)}>Editar</Button>
+              </>) : null}
+            </DialogFooter>
+            {!deletable ? (
+              <p className="text-[11px] text-muted-foreground">Para excluir, estorne antes as parcelas pagas.</p>
             ) : null}
           </>
         )}

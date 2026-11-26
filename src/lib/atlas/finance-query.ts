@@ -6,6 +6,7 @@ import { computeBalanceBreakdown } from "@/lib/financeiro/api";
 import { formatBRL, formatDateBR } from "@/lib/financeiro/format";
 import type { FinAccount, FinGoal, FinInstallment, FinInstallmentPlan, FinTransaction, FinTransfer } from "@/lib/financeiro/types";
 import { summarizeInstallments } from "@/lib/financeiro/installments";
+import { expenseValue, isReversal } from "@/lib/financeiro/flows";
 import { normalize, type FinanceQuery } from "./finance-intent";
 
 export interface FinanceSnapshot {
@@ -84,7 +85,8 @@ export function answerFinanceQuery(query: FinanceQuery, data: FinanceSnapshot, n
     case "despesas": {
       const out = monthTx.filter((t) => t.type === "saida");
       if (out.length === 0) return "Você não registrou saídas neste mês.";
-      const total = out.reduce((s, t) => s + Number(t.amount), 0);
+      // Estornos de parcela desfazem a saída original: entram negativos.
+      const total = monthTx.reduce((s, t) => s + expenseValue(t), 0);
       let msg = `Neste mês você registrou ${formatBRL(total)} em saídas (${out.length} ${out.length === 1 ? "movimentação" : "movimentações"}).`;
       if (query === "despesas") {
         const byCat: Record<string, number> = {};
@@ -92,13 +94,17 @@ export function answerFinanceQuery(query: FinanceQuery, data: FinanceSnapshot, n
           const k = t.category?.trim() || "Sem categoria";
           byCat[k] = (byCat[k] ?? 0) + Number(t.amount);
         }
-        const top = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 3);
+        for (const t of monthTx.filter(isReversal)) {
+          const k = t.category?.trim() || "Sem categoria";
+          byCat[k] = (byCat[k] ?? 0) + expenseValue(t);
+        }
+        const top = Object.entries(byCat).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 3);
         msg += ` Maiores: ${top.map(([k, v]) => `${k} (${formatBRL(v)})`).join(", ")}.`;
       }
       return `${msg} ${SOURCE_NOTE}`;
     }
     case "entradas_mes": {
-      const inc = monthTx.filter((t) => t.type === "entrada");
+      const inc = monthTx.filter((t) => t.type === "entrada" && !isReversal(t));
       if (inc.length === 0) return "Você não registrou entradas neste mês.";
       const total = inc.reduce((s, t) => s + Number(t.amount), 0);
       return `Neste mês você registrou ${formatBRL(total)} em entradas (${inc.length} ${inc.length === 1 ? "movimentação" : "movimentações"}). ${SOURCE_NOTE}`;

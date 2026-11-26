@@ -52,15 +52,16 @@ export function previewPlan(total: number, count: number, first: string): Previe
   return amounts.map((amount, i) => ({ number: i + 1, amount, due_date: dueDate(first, i + 1) }));
 }
 
-export type InstallmentState = "prevista" | "pendente" | "atrasada" | "paga" | "cancelada";
+export type InstallmentState = "prevista" | "pendente" | "atrasada" | "paga" | "cancelada" | "estornada";
 export function installmentState(i: Pick<FinInstallment, "status" | "due_date">, today: string): InstallmentState {
   if (i.status === "paga") return "paga";
   if (i.status === "cancelada") return "cancelada";
+  if (i.status === "estornada") return "estornada";
   if (i.due_date > today) return "prevista";
   return i.due_date === today ? "pendente" : "atrasada";
 }
 export const STATE_LABEL: Record<InstallmentState, string> = {
-  prevista: "Prevista", pendente: "Vence hoje", atrasada: "Atrasada", paga: "Paga", cancelada: "Cancelada",
+  prevista: "Prevista", pendente: "Vence hoje", atrasada: "Atrasada", paga: "Paga", cancelada: "Cancelada", estornada: "Estornada",
 };
 
 export function addDays(iso: string, days: number): string {
@@ -106,11 +107,16 @@ export function summarizeInstallments(plans: Pick<FinInstallmentPlan, "id" | "st
   };
 }
 
-export interface PlanProgress { paid: number; remaining: number; cancelled: number; paidCount: number; openCount: number }
+export interface PlanProgress { paid: number; remaining: number; cancelled: number; refunded: number; paidCount: number; openCount: number; refundedCount: number }
 export function planProgress(installments: FinInstallment[]): PlanProgress {
   const by = (s: FinInstallment["status"]) => installments.filter((i) => i.status === s);
-  return { paid: sumCents(by("paga")), remaining: sumCents(by("aberta")), cancelled: sumCents(by("cancelada")),
-    paidCount: by("paga").length, openCount: by("aberta").length };
+  return { paid: sumCents(by("paga")), remaining: sumCents(by("aberta")), cancelled: sumCents(by("cancelada")), refunded: sumCents(by("estornada")),
+    paidCount: by("paga").length, openCount: by("aberta").length, refundedCount: by("estornada").length };
+}
+
+/** Exclusão definitiva só sem pagamentos ativos (pagas precisam ser estornadas antes). */
+export function canDeletePlan(installments: Pick<FinInstallment, "status">[]): boolean {
+  return !installments.some((i) => i.status === "paga");
 }
 
 /** Validação do formulário; retorna mensagem ou null. */

@@ -7,6 +7,7 @@ import {
   listTransactions,
 } from "@/lib/financeiro/api";
 import { formatBRL, todayIso } from "@/lib/financeiro/format";
+import { affectsExpense, expenseValue } from "@/lib/financeiro/flows";
 import { Card } from "@/components/atlas/AppShell";
 
 interface Insight {
@@ -29,8 +30,8 @@ export function InsightsTab() {
 
     const sumSaida = (k: string) =>
       tx
-        .filter((t) => t.type === "saida" && t.tx_date.startsWith(k))
-        .reduce((s, t) => s + Number(t.amount), 0);
+        .filter((t) => t.tx_date.startsWith(k))
+        .reduce((s, t) => s + expenseValue(t), 0);
     const curr = sumSaida(key);
     const prev = sumSaida(prevKey);
 
@@ -54,13 +55,13 @@ export function InsightsTab() {
     }
 
     const cats: Record<string, number> = {};
-    tx.filter((t) => t.type === "saida" && t.tx_date.startsWith(key)).forEach(
+    tx.filter((t) => affectsExpense(t) && t.tx_date.startsWith(key)).forEach(
       (t) => {
         const k = t.category || "Outros";
-        cats[k] = (cats[k] || 0) + Number(t.amount);
+        cats[k] = (cats[k] || 0) + expenseValue(t);
       },
     );
-    const top = Object.entries(cats).sort((a, b) => b[1] - a[1])[0];
+    const top = Object.entries(cats).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])[0];
     if (top) {
       out.push({
         kind: "trend",

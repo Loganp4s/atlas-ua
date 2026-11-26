@@ -53,7 +53,20 @@ export function MovimentacoesTab() {
   const auth = useAuthUser();
   const [openPlanId, setOpenPlanId] = useState<string | null>(null);
   const plans = plansQ.data ?? [];
-  const linkedTx = useMemo(() => new Map((instQ.data ?? []).filter((i) => i.transaction_id).map((i) => [i.transaction_id as string, i.plan_id])), [instQ.data]);
+  const linkedTx = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const i of instQ.data ?? []) {
+      if (i.transaction_id) m.set(i.transaction_id, i.plan_id);
+      if (i.refund_transaction_id) m.set(i.refund_transaction_id, i.plan_id);
+    }
+    return m;
+  }, [instQ.data]);
+  // Pares pagamento/estorno ficam protegidos mesmo após excluir o parcelamento.
+  const reversalPair = useMemo(() => {
+    const s = new Set<string>();
+    for (const t of txQ.data ?? []) if (t.reversal_of_transaction_id) { s.add(t.id); s.add(t.reversal_of_transaction_id); }
+    return s;
+  }, [txQ.data]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [editing, setEditing] = useState<FinTransaction | null>(null);
@@ -251,6 +264,7 @@ export function MovimentacoesTab() {
                     {t.installment_total
                       ? ` · ${t.installment_index}/${t.installment_total}`
                       : ""}
+                    {t.reversal_of_transaction_id ? " · Estorno de parcela" : ""}
                   </p>
                 </div>
                 <span
@@ -276,6 +290,8 @@ export function MovimentacoesTab() {
                       <DropdownMenuItem onClick={() => setOpenPlanId(linkedTx.get(t.id) ?? null)}>
                         <Pencil className="h-4 w-4" /> Ver parcelamento
                       </DropdownMenuItem>
+                    ) : reversalPair.has(t.id) ? (
+                      <DropdownMenuItem disabled>Pagamento estornado (protegido)</DropdownMenuItem>
                     ) : (<>
                     <DropdownMenuItem onClick={() => openEdit(t)}>
                       <Pencil className="h-4 w-4" /> Editar

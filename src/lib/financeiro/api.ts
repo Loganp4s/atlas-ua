@@ -224,6 +224,20 @@ export async function updateInstallmentPlan(planId: string, input: InstallmentPl
   });
   if (error) throw error;
 }
+export async function refundInstallment(installmentId: string, refundDate: string, requestId: string): Promise<{ transaction_id: string; duplicate: boolean }> {
+  await uid();
+  const { data, error } = await sb.rpc("refund_fin_installment", {
+    p_installment_id: installmentId, p_refund_date: refundDate, p_request_id: requestId,
+  });
+  if (error) throw error;
+  return data as unknown as { transaction_id: string; duplicate: boolean };
+}
+export async function deleteInstallmentPlan(planId: string): Promise<{ deleted: boolean; refunded_kept: number }> {
+  await uid();
+  const { data, error } = await sb.rpc("delete_fin_installment_plan", { p_plan_id: planId });
+  if (error) throw error;
+  return data as unknown as { deleted: boolean; refunded_kept: number };
+}
 export async function cancelInstallmentPlan(planId: string, confirmOverdue: boolean, today: string): Promise<{ cancelled: number }> {
   await uid();
   const { data, error } = await sb.rpc("cancel_fin_installment_plan", {

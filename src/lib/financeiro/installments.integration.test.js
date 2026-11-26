@@ -272,4 +272,90 @@ suite("parcelamentos — PostgreSQL real isolado", () => {
     const [l] = await db`SELECT * FROM fin_transactions WHERE tx_date='2025-01-01'`;
     expect([l.recurrence, l.installment_total, l.installment_index, l.amount]).toEqual(["diaria", 3, 1, "10"]);
   });
+
+  // ---- Etapa 1.5.1: exclusão e estorno ----
+  const refund = (uid, inst, req = key()) =>
+    as(uid, (t) => t`SELECT public.refund_fin_installment(${inst}::uuid, current_date, ${req}::uuid) AS r`).then((r) => r[0].r);
+  const del = (uid, plan) => as(uid, (t) => t`SELECT public.delete_fin_installment_plan(${plan}::uuid) AS r`).then((r) => r[0].r);
+  const balance = async () => {
+    const accounts = (await db`SELECT * FROM fin_accounts WHERE user_id=${U1}`).map((a) => ({ ...a, initial_balance: Number(a.initial_balance) }));
+    const txs = (await db`SELECT * FROM fin_transactions WHERE user_id=${U1}`).map((t) => ({ ...t, amount: Number(t.amount) }));
+    return computeBalanceBreakdown(accounts, txs).active.balance;
+  };
+
+  test("exclui parcelamento ativo sem pagamentos, sem tocar movimentações", async () => {
+    const { plan_id } = await create(U1);
+    const n0 = await txCount();
+    expect((await del(U1, plan_id)).deleted).toBe(true);
+    expect((await insts(plan_id)).length).toBe(0);
+    expect((await db`SELECT 1 FROM fin_installment_plans WHERE id=${plan_id}`).length).toBe(0);
+    expect(await txCount()).toBe(n0);
+    expect((await err(del(U1, plan_id)))?.code).toBe("P0002");
+  });
+
+  test("exclui parcelamento cancelado sem pagamentos", async () => {
+    const { plan_id } = await create(U1, { first: "2030-01-10" });
+    await as(U1, (t) => t`SELECT public.cancel_fin_installment_plan(${plan_id}::uuid, false, null)`);
+    expect((await del(U1, plan_id)).deleted).toBe(true);
+    expect((await insts(plan_id)).length).toBe(0);
+  });
+
+  test("não exclui com pagamento ativo nem parcelamento de outra pessoa", async () => {
+    const { plan_id } = await create(U1);
+    const [i1] = await insts(plan_id);
+    await pay(U1, i1.id);
+    expect((await err(del(U1, plan_id)))?.code).toBe("PT423");
+    expect((await err(del(U2, plan_id)))?.code).toBe("P0002");
+    expect((await err(refund(U2, i1.id)))?.code).toBe("P0002");
+    expect((await err(refund(null, i1.id)))?.code).toBe("28000");
+    expect((await insts(plan_id)).length).toBe(3);
+  });
+
+  test("estorno: entrada compensatória na mesma conta, saldo volta, original rastreável, sem duplicar", async () => {
+    const { plan_id } = await create(U1, { total: "120", n: 3, first: "2026-01-10" });
+    const [i1, i2] = await insts(plan_id);
+    const before = await balance();
+    const p = await pay(U1, i1.id, ACC2, "2026-01-12");
+    expect(await balance()).toBe(before - 40);
+    expect((await err(refund(U1, i2.id)))?.code).toBe("PT410"); // não paga
+    const req = key();
+    const r = await refund(U1, i1.id, req);
+    expect(r.duplicate).toBe(false);
+    expect(await refund(U1, i1.id, req)).toEqual({ transaction_id: r.transaction_id, duplicate: true });
+    expect((await err(refund(U1, i1.id)))?.code).toBe("PT410"); // outra chave: já estornada
+    expect(await balance()).toBe(before);
+    const [rt] = await db`SELECT * FROM fin_transactions WHERE id=${r.transaction_id}`;
+    expect([rt.type, rt.amount, rt.account_id, rt.reversal_of_transaction_id]).toEqual(["entrada", "40.00", ACC2, p.transaction_id]);
+    const [orig] = await db`SELECT * FROM fin_transactions WHERE id=${p.transaction_id}`;
+    expect([orig.type, orig.amount]).toEqual(["saida", "40.00"]);
+    const [row] = await db`SELECT * FROM fin_installments WHERE id=${i1.id}`;
+    expect([row.status, row.transaction_id, row.refund_transaction_id]).toEqual(["estornada", p.transaction_id, r.transaction_id]);
+    expect((await err(pay(U1, i1.id)))?.code).toBe("PT410"); // estornada não volta a ser paga
+    // pares protegidos contra edição/exclusão direta
+    expect((await err(as(U1, (t) => t`DELETE FROM fin_transactions WHERE id=${r.transaction_id}`)))?.code).toBe("PT423");
+    expect((await err(as(U1, (t) => t`UPDATE fin_transactions SET amount=1 WHERE id=${p.transaction_id}`)))?.code).toBe("PT423");
+    // estorno falso direto é recusado
+    expect((await err(as(U1, (t) => t`INSERT INTO fin_transactions (user_id,account_id,type,amount,reversal_of_transaction_id) VALUES (${U1},${ACC},'entrada',5,${p.transaction_id})`)))?.code).toBe("PT423");
+    // editar fica bloqueado; cancelar e excluir funcionam; extrato preserva o par
+    expect((await err(as(U1, (t) => t`SELECT public.update_fin_installment_plan(${plan_id}::uuid, ${ACC}::uuid, 'x', null, 120::numeric, 3, '2026-01-10'::date)`)))?.code).toBe("PT422");
+    await as(U1, (t) => t`SELECT public.cancel_fin_installment_plan(${plan_id}::uuid, true, null)`);
+    const rows = await insts(plan_id);
+    expect(rows.map((x) => x.status)).toEqual(["estornada", "cancelada", "cancelada"]);
+    const sum = summarizeInstallments([{ id: plan_id, status: "cancelado" }], rows.map((x) => ({ ...x, amount: Number(x.amount), due_date: x.due_date.toISOString().slice(0, 10) })), "2026-01-01", 36500);
+    expect(sum.commitmentsCount).toBe(0);
+    expect((await del(U1, plan_id)).refunded_kept).toBe(1);
+    expect((await db`SELECT count(*)::int c FROM fin_transactions WHERE id IN (${p.transaction_id}, ${r.transaction_id})`)[0].c).toBe(2);
+    expect((await err(as(U1, (t) => t`DELETE FROM fin_transactions WHERE id=${p.transaction_id}`)))?.code).toBe("PT423");
+    expect(await balance()).toBe(before);
+  });
+
+  test("estornos concorrentes com chaves diferentes: exatamente um vence", async () => {
+    const { plan_id } = await create(U1);
+    const [i1] = await insts(plan_id);
+    await pay(U1, i1.id);
+    const n0 = await txCount();
+    const results = await Promise.allSettled(Array.from({ length: 6 }, () => refund(U1, i1.id)));
+    expect(results.filter((x) => x.status === "fulfilled").length).toBe(1);
+    expect(await txCount()).toBe(n0 + 1);
+  });
 });

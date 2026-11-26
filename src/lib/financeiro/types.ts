@@ -36,6 +36,8 @@ export interface FinTransaction {
   installment_total: number | null;
   installment_index: number | null;
   parent_id: string | null;
+  /** Estorno de pagamento de parcela: aponta para a saída original. */
+  reversal_of_transaction_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -96,7 +98,7 @@ export interface FinTransfer {
 }
 
 export type FinInstallmentPlanStatus = "ativo" | "concluido" | "cancelado";
-export type FinInstallmentStatus = "aberta" | "paga" | "cancelada";
+export type FinInstallmentStatus = "aberta" | "paga" | "cancelada" | "estornada";
 /** Compra parcelada (compromisso). As parcelas abertas não são movimentações. */
 export interface FinInstallmentPlan {
   id: string;
@@ -126,6 +128,9 @@ export interface FinInstallment {
   paid_account_id: string | null;
   transaction_id: string | null;
   pay_request_id: string | null;
+  refund_transaction_id?: string | null;
+  refund_request_id?: string | null;
+  refunded_on?: string | null;
   cancelled_at: string | null;
   created_at: string;
   updated_at: string;
