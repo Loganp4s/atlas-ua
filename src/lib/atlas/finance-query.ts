@@ -109,9 +109,9 @@ export function answerFinanceQuery(query: FinanceQuery, data: FinanceSnapshot, n
       const ymd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
       const s30 = summarizeInstallments(plans, data.installments ?? [], ymd, 30);
       const all = summarizeInstallments(plans, data.installments ?? [], ymd, 36500);
-      if (all.upcomingCount === 0) return `Não há parcelas em aberto. ${SOURCE_NOTE}`;
+      if (all.commitmentsCount === 0) return `Não há parcelas em aberto. ${SOURCE_NOTE}`;
       const next = all.next[0];
-      let msg = `Você tem ${formatBRL(s30.commitments)} em parcelas previstas para os próximos 30 dias e ${formatBRL(all.commitments)} em aberto no total (${all.upcomingCount} ${all.upcomingCount === 1 ? "parcela" : "parcelas"}).`;
+      let msg = `Você tem ${formatBRL(s30.upcoming)} em parcelas previstas para os próximos 30 dias e ${formatBRL(all.commitments)} em aberto no total (${all.commitmentsCount} ${all.commitmentsCount === 1 ? "parcela" : "parcelas"}).`;
       if (all.overdueCount > 0) msg += ` ${formatBRL(all.overdue)} já venceram e aguardam sua confirmação de pagamento.`;
       if (next) msg += ` Próximo vencimento: ${formatDateBR(next.due_date)} (${formatBRL(Number(next.amount))}).`;
       return `${msg} São previsões — só saem do saldo quando você confirma o pagamento. ${SOURCE_NOTE}`;

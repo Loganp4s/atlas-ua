@@ -181,8 +181,11 @@ export function worldCards(data: HomeData): WorldCard[] {
       secondary:
         !hasActive
           ? `registros: ${formatBRL(bd.consolidated)}`
-          : soon && soon.commitments > 0
-          ? `${formatBRL(soon.commitments)} em parcelas nos próximos 30 dias`
+          : soon && soon.commitmentsCount > 0
+          ? [
+              soon.upcomingCount > 0 ? `${formatBRL(soon.upcoming)} em parcelas nos próximos 30 dias` : null,
+              soon.overdueCount > 0 ? `${formatBRL(soon.overdue)} em parcelas atrasadas` : null,
+            ].filter(Boolean).join(" · ")
           : pending > 0
           ? `${pending} ${pending === 1 ? "conta a pagar" : "contas a pagar"}`
           : "nada pendente por aqui",

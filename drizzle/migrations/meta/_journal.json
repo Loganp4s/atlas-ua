@@ -57,6 +57,13 @@
       "when": 1795647117428,
       "tag": "0007_fin_installments_revoke_writes",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795659893663,
+      "tag": "0008_installment_payment_date_validation",
+      "breakpoints": true
     }
   ]
 }

@@ -43,7 +43,8 @@ export function InstallmentsSection({ plans, installments, accounts, userId, ope
         {plans.map((p) => {
           const items = byPlan.get(p.id) ?? [];
           const pr = planProgress(items);
-          const next = items.find((i) => i.status === "aberta");
+          const next = items.filter((i) => i.status === "aberta" && i.due_date >= today)
+            .sort((a, b) => a.due_date.localeCompare(b.due_date) || a.number - b.number)[0];
           const late = items.some((i) => i.status === "aberta" && i.due_date < today);
           return (
             <li key={p.id}>

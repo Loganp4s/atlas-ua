@@ -49,7 +49,8 @@ describe("estado e previsão", () => {
   test("períodos 7/30/90/365 e sem duplicar", () => {
     const list = [inst("a", "2026-11-20"), inst("b", "2026-11-30"), inst("c", "2027-01-15"), inst("d", "2027-10-01"), inst("a", "2026-11-20")];
     const f = (d) => summarizeInstallments([{ id: "p", status: "ativo" }], list, "2026-11-25", d);
-    expect([7, 30, 90, 365].map((d) => f(d).upcomingCount)).toEqual([2, 2, 3, 4]);
+    expect([7, 30, 90, 365].map((d) => f(d).upcomingCount)).toEqual([1, 1, 2, 3]);
+    expect([7, 30, 90, 365].map((d) => f(d).commitmentsCount)).toEqual([2, 2, 3, 4]);
     expect(f(7).overdue).toBe(200);
     expect(f(365).commitments).toBe(800);
   });
@@ -60,5 +61,42 @@ describe("estado e previsão", () => {
   test("validação do formulário", () => {
     expect(validatePlanInput({ description: "X", account_id: "a", total_amount: 100, installment_count: 3, first_due_date: "2026-12-10" })).toBeNull();
     expect(validatePlanInput({ description: "X", account_id: "a", total_amount: 100, installment_count: 3, first_due_date: "2026-02-30" })).not.toBeNull();
+  });
+  test("atraso de 60 dias separado do vencimento em 10 dias", () => {
+    const s = summarizeInstallments([], [inst("late", "2026-09-26", "aberta", 100.01), inst("soon", "2026-12-05", "aberta", 200.02)], "2026-11-25", 30);
+    expect([s.upcoming, s.upcomingCount, s.overdue, s.overdueCount, s.commitments, s.commitmentsCount]).toEqual([200.02, 1, 100.01, 1, 300.03, 2]);
+    expect(2000 - s.commitments).toBe(1699.97);
+    expect(s.next.map((i) => i.id)).toEqual(["soon"]);
+  });
+  test("somente atrasadas continuam na projeção, sem próximo vencimento", () => {
+    const s = summarizeInstallments([], [inst("late", "2026-09-26")], "2026-11-25", 30);
+    expect([s.upcoming, s.upcomingCount, s.overdue, s.overdueCount, s.commitments, s.commitmentsCount]).toEqual([0, 0, 200, 1, 200, 1]);
+    expect(s.next).toEqual([]);
+  });
+  test("somente futuras dentro do período", () => {
+    const s = summarizeInstallments([], [inst("soon", "2026-12-05"), inst("later", "2027-01-01")], "2026-11-25", 30);
+    expect([s.upcoming, s.upcomingCount, s.overdue, s.commitments]).toEqual([200, 1, 0, 200]);
+  });
+  test("vencimento de hoje é incluído, não atrasado", () => {
+    const s = summarizeInstallments([], [inst("today", "2026-11-25")], "2026-11-25", 7);
+    expect([s.upcoming, s.overdue, s.commitmentsCount]).toEqual([200, 0, 1]);
+    expect(s.next.map((i) => i.id)).toEqual(["today"]);
+  });
+  test("pagas e canceladas não entram nos abertos", () => {
+    const s = summarizeInstallments([], [inst("paid", "2026-11-20", "paga", 50, "2026-11-25"), inst("cancel", "2026-11-26", "cancelada"), inst("open", "2026-11-26")], "2026-11-25", 30);
+    expect([s.upcoming, s.overdue, s.commitments, s.commitmentsCount, s.paidInPeriod]).toEqual([200, 0, 200, 1, 50]);
+  });
+  for (const [days, end] of [[7, "2026-12-02"], [30, "2026-12-25"], [90, "2027-02-23"], [365, "2027-11-25"]]) {
+    test(`período ${days}: inclui limite final e mantém atraso uma única vez`, () => {
+      const s = summarizeInstallments([], [inst("late", "2026-09-26", "aberta", 0.01), inst("today", "2026-11-25", "aberta", 0.02), inst("end", end, "aberta", 0.03), inst("end", end, "aberta", 0.03), inst("outside", "2028-01-01")], "2026-11-25", days);
+      expect([s.upcoming, s.overdue, s.commitments]).toEqual([0.05, 0.01, 0.06]);
+      expect(s.commitmentsCount).toBe(s.upcomingCount + s.overdueCount);
+      expect(s.next.map((i) => i.id)).toEqual(["today", "end"]);
+    });
+  }
+  test("próximos vencimentos em ordem cronológica, limitados a cinco", () => {
+    const s = summarizeInstallments([], [inst("late", "2026-09-26"), ...[6, 3, 2, 5, 1, 4].map((d) => inst(String(d), `2026-12-0${d}`))], "2026-11-25", 30);
+    expect(s.next.map((i) => i.id)).toEqual(["1", "2", "3", "4", "5"]);
+    expect(s.commitmentsCount).toBe(7);
   });
 });

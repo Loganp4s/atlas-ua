@@ -75,10 +75,10 @@ suite("parcelamentos — PostgreSQL real isolado", () => {
     `);
     const dir = new URL("../../../drizzle/migrations/", import.meta.url);
     const files = (await readdir(dir)).filter((f) => f.endsWith(".sql")).sort();
-    let sql = null;
-    for (const f of files) { const s = await readFile(new URL(f, dir), "utf8"); if (s.includes("create_fin_installment_plan")) sql = s; }
-    if (!sql) throw new Error("installment migration not found");
-    await db.unsafe(sql);
+    const migrations = await Promise.all(files.map((f) => readFile(new URL(f, dir), "utf8")));
+    const base = migrations.findIndex((s) => s.includes("CREATE OR REPLACE FUNCTION public.create_fin_installment_plan("));
+    if (base < 0) throw new Error("installment migration not found");
+    for (const sql of migrations.slice(base)) await db.unsafe(sql);
     await db`INSERT INTO fin_accounts (id,user_id,name,initial_balance,archived) VALUES
       (${ACC},${U1},'Nubank',2000,false),(${ACC2},${U1},'PicPay',0,false),(${ARC},${U1},'Velha',0,true),(${OTHER},${U2},'Alheia',0,false)`;
     // Legacy movement (pre-1.5.1) stays untouched.
@@ -206,6 +206,31 @@ suite("parcelamentos — PostgreSQL real isolado", () => {
     expect((await err(as(U1, (t) => t`UPDATE fin_transactions SET amount=1 WHERE id=${transaction_id}`)))?.code).toBe("PT423");
     expect((await err(as(U1, (t) => t`DELETE FROM fin_transactions WHERE id=${transaction_id}`)))?.code).toBe("PT423");
     await as(U1, (t) => t`UPDATE fin_transactions SET description='Notebook novo' WHERE id=${transaction_id}`);
+  });
+  for (const offset of [-1, 0]) {
+    test(`RPC direta permite pagamento ${offset === -1 ? "ontem" : "hoje"}, sem duplicação`, async () => {
+      const [{ date }] = await db`SELECT to_char(current_date + ${offset}::int, 'YYYY-MM-DD') AS date`;
+      const { plan_id } = await create(U1);
+      const [item] = await insts(plan_id);
+      const req = key();
+      const before = await txCount();
+      const result = await pay(U1, item.id, ACC, date, req);
+      expect(result.duplicate).toBe(false);
+      expect(await pay(U1, item.id, ACC, date, req)).toEqual({ transaction_id: result.transaction_id, duplicate: true });
+      expect((await err(pay(U1, item.id, ACC, date)))?.code).toBe("PT410");
+      expect(await txCount()).toBe(before + 1);
+      expect((await db`SELECT to_char(paid_at,'YYYY-MM-DD') AS date FROM fin_installments WHERE id=${item.id}`)[0].date).toBe(date);
+    });
+  }
+  test("RPC direta rejeita amanhã sem movimentação nem alteração da parcela", async () => {
+    const [{ date }] = await db`SELECT to_char(current_date + 1, 'YYYY-MM-DD') AS date`;
+    const { plan_id } = await create(U1);
+    const [item] = await insts(plan_id);
+    const before = await txCount();
+    expect((await err(pay(U1, item.id, ACC, date)))?.code).toBe("22023");
+    expect(await txCount()).toBe(before);
+    const [row] = await db`SELECT status, paid_at, transaction_id, pay_request_id FROM fin_installments WHERE id=${item.id}`;
+    expect([row.status, row.paid_at, row.transaction_id, row.pay_request_id]).toEqual(["aberta", null, null, null]);
   });
 
   test("edição sem pagas recalcula a série; com pagas preserva as pagas", async () => {

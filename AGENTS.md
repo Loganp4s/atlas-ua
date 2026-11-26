@@ -21,3 +21,4 @@
 - Finance Summary and Accounts reuse TransferDialog; ambiguous transfer attempts can only be cleared after explicit confirmation and a matching authenticated server read, because a missing row cannot rule out an in-flight commit.
 
 - Installments live in `fin_installment_plans`/`fin_installments`, written only through the create/pay/update/cancel installment RPCs (shared via `installment-actions.ts` for Finanças and Composer); open installments are commitments that never enter `computeBalanceBreakdown`, and only payment creates the `fin_transactions` row, so forecasts never count as realized money.
+- Installment forecasts use separate upcoming and overdue buckets; commitments and commitmentsCount include both exactly once, while next lists only dates from today onward, so every consumer uses the correct time scope.

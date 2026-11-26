@@ -72,8 +72,11 @@ export function addDays(iso: string, days: number): string {
 const sumCents = (xs: { amount: number }[]) => xs.reduce((s, x) => s + Math.round(Number(x.amount) * 100), 0) / 100;
 
 export interface InstallmentSummary {
-  /** Parcelas abertas com vencimento até hoje+days (inclui atrasadas). */
+  /** Total aberto considerado na projeção: atrasadas + vencimentos no período. */
   commitments: number;
+  commitmentsCount: number;
+  /** Parcelas abertas entre hoje e hoje+days, inclusive. */
+  upcoming: number;
   upcomingCount: number;
   overdue: number;
   overdueCount: number;
@@ -93,11 +96,13 @@ export function summarizeInstallments(plans: Pick<FinInstallmentPlan, "id" | "st
   const open = scoped.filter((i) => i.status === "aberta" && i.due_date <= end)
     .sort((a, b) => (a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : a.number - b.number));
   const overdue = open.filter((i) => i.due_date < today);
+  const upcoming = open.filter((i) => i.due_date >= today);
   const paid = scoped.filter((i) => i.status === "paga" && i.paid_at && i.paid_at >= start && i.paid_at <= today);
   return {
-    commitments: sumCents(open), upcomingCount: open.length,
+    commitments: sumCents(open), commitmentsCount: open.length,
+    upcoming: sumCents(upcoming), upcomingCount: upcoming.length,
     overdue: sumCents(overdue), overdueCount: overdue.length,
-    paidInPeriod: sumCents(paid), next: open.slice(0, 5),
+    paidInPeriod: sumCents(paid), next: upcoming.slice(0, 5),
   };
 }
 
