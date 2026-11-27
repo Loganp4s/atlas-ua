@@ -349,6 +349,42 @@ suite("parcelamentos — PostgreSQL real isolado", () => {
     expect(await balance()).toBe(before);
   });
 
+  test("estorno com a mesma chave em outra parcela é conflito", async () => {
+    const { plan_id } = await create(U1);
+    const [i1, i2] = await insts(plan_id);
+    await pay(U1, i1.id); await pay(U1, i2.id);
+    const req = key(); await refund(U1, i1.id, req);
+    expect((await err(refund(U1, i2.id, req)))?.code).toBe("PT409");
+    expect((await insts(plan_id))[1].status).toBe("paga");
+  });
+
+  test("estorno falho faz rollback da entrada e do estado da parcela", async () => {
+    const { plan_id } = await create(U1);
+    const [i1] = await insts(plan_id); const p = await pay(U1, i1.id);
+    const n0 = await txCount(); const b0 = await balance();
+    await db.unsafe(`CREATE FUNCTION public.test_fail_refund() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+      IF NEW.status = 'estornada' THEN RAISE EXCEPTION 'falha de teste'; END IF; RETURN NEW; END $$;
+      CREATE TRIGGER test_fail_refund BEFORE UPDATE ON fin_installments FOR EACH ROW EXECUTE FUNCTION public.test_fail_refund();`);
+    try {
+      expect((await err(refund(U1, i1.id)))?.code).toBe("P0001");
+      expect(await txCount()).toBe(n0); expect(await balance()).toBe(b0);
+      expect((await insts(plan_id))[0].status).toBe("paga");
+      expect((await db`SELECT 1 FROM fin_transactions WHERE reversal_of_transaction_id=${p.transaction_id}`).length).toBe(0);
+    } finally { await db.unsafe('DROP TRIGGER test_fail_refund ON fin_installments; DROP FUNCTION public.test_fail_refund();'); }
+  });
+
+  test("exclusão falha faz rollback das parcelas já removidas", async () => {
+    const { plan_id } = await create(U1);
+    await db.unsafe(`CREATE FUNCTION public.test_fail_delete_plan() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+      RAISE EXCEPTION 'falha de teste'; END $$;
+      CREATE TRIGGER test_fail_delete_plan BEFORE DELETE ON fin_installment_plans FOR EACH ROW EXECUTE FUNCTION public.test_fail_delete_plan();`);
+    try {
+      expect((await err(del(U1, plan_id)))?.code).toBe("P0001");
+      expect((await insts(plan_id)).length).toBe(3);
+      expect((await db`SELECT 1 FROM fin_installment_plans WHERE id=${plan_id}`).length).toBe(1);
+    } finally { await db.unsafe('DROP TRIGGER test_fail_delete_plan ON fin_installment_plans; DROP FUNCTION public.test_fail_delete_plan();'); }
+  });
+
   test("estornos concorrentes com chaves diferentes: exatamente um vence", async () => {
     const { plan_id } = await create(U1);
     const [i1] = await insts(plan_id);

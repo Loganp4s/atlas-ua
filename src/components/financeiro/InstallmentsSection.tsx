@@ -110,7 +110,7 @@ function PlanDialog({ plan, items, accounts, userId, onClose }: {
     const acc = accounts.find((a) => a.id === i.paid_account_id);
     if (!(await confirmDelete(
       `Estornar o pagamento da parcela ${i.number}/${plan.installment_count}?`,
-      `${formatBRL(Number(i.amount))} pagos em ${i.paid_at ? formatDateBR(i.paid_at) : "—"} voltam para ${acc ? acc.name : "a conta do pagamento"} como estorno (não é uma receita). O pagamento original continua no histórico.`,
+      `Hoje (${formatDateBR(today)}), ${formatBRL(Number(i.amount))} pagos em ${i.paid_at ? formatDateBR(i.paid_at) : "—"} voltam para ${acc ? acc.name : "a conta do pagamento"} como estorno (não é uma receita). O pagamento original continua no histórico.`,
       "Estornar pagamento"))) return;
     setBusy(true);
     try {
@@ -149,6 +149,7 @@ function PlanDialog({ plan, items, accounts, userId, onClose }: {
         <p className="text-[11px] text-muted-foreground">
           {PLAN_STATUS[plan.status]} · conta de origem: {origin ? `${origin.name}${origin.archived ? " (arquivada)" : ""}` : "removida"}
           {plan.category ? ` · ${plan.category}` : ""}
+          {pr.refundedCount > 0 ? ` · ${formatBRL(pr.refunded)} estornados` : ""}
         </p>
         {editing ? (
           <PlanEditForm plan={plan} items={items} accounts={accounts} onDone={() => setEditing(false)} />
@@ -158,7 +159,7 @@ function PlanDialog({ plan, items, accounts, userId, onClose }: {
               {items.map((i) => {
                 const st = installmentState(i, today);
                 return (
-                  <li key={i.id} className="flex items-center gap-2 rounded-xl border border-border/60 px-3 py-2 text-xs">
+                  <li key={i.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 px-3 py-2 text-xs">
                     <span className="w-10 shrink-0 text-muted-foreground">{i.number}/{plan.installment_count}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-foreground">{formatBRL(Number(i.amount))}</span>
@@ -173,7 +174,7 @@ function PlanDialog({ plan, items, accounts, userId, onClose }: {
                     ) : null}
                     {i.status === "paga" ? (
                       <Button size="sm" variant="ghost" className="h-7 px-2" disabled={busy}
-                        onClick={() => void refund(i)}>{userId && hasPendingRefund(userId, i.id) ? "Repetir estorno" : "Estornar"}</Button>
+                        onClick={() => void refund(i)}>{userId && hasPendingRefund(userId, i.id) ? "Repetir estorno" : "Estornar pagamento"}</Button>
                     ) : null}
                   </li>
                 );
