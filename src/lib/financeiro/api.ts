@@ -230,13 +230,19 @@ export async function refundInstallment(installmentId: string, refundDate: strin
     p_installment_id: installmentId, p_refund_date: refundDate, p_request_id: requestId,
   });
   if (error) throw error;
-  return data as unknown as { transaction_id: string; duplicate: boolean };
+  if (!data || typeof data.transaction_id !== "string" || typeof data.duplicate !== "boolean") {
+    throw new Error("Resposta inesperada ao confirmar o estorno. Repita a mesma tentativa.");
+  }
+  return data;
 }
 export async function deleteInstallmentPlan(planId: string): Promise<{ deleted: boolean; refunded_kept: number }> {
   await uid();
   const { data, error } = await sb.rpc("delete_fin_installment_plan", { p_plan_id: planId });
   if (error) throw error;
-  return data as unknown as { deleted: boolean; refunded_kept: number };
+  if (!data || data.deleted !== true || typeof data.refunded_kept !== "number") {
+    throw new Error("Resposta inesperada ao excluir o parcelamento. Verifique o histórico antes de tentar novamente.");
+  }
+  return data;
 }
 export async function cancelInstallmentPlan(planId: string, confirmOverdue: boolean, today: string): Promise<{ cancelled: number }> {
   await uid();

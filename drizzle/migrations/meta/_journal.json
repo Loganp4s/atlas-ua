@@ -78,6 +78,13 @@
       "when": 1795718210612,
       "tag": "0010_installment_edit_block_after_refund",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795831554236,
+      "tag": "0011_protect_refund_transaction_metadata",
+      "breakpoints": true
     }
   ]
 }

@@ -346,6 +346,8 @@ suite("parcelamentos — PostgreSQL real isolado", () => {
     expect((await del(U1, plan_id)).refunded_kept).toBe(1);
     expect((await db`SELECT count(*)::int c FROM fin_transactions WHERE id IN (${p.transaction_id}, ${r.transaction_id})`)[0].c).toBe(2);
     expect((await err(as(U1, (t) => t`DELETE FROM fin_transactions WHERE id=${p.transaction_id}`)))?.code).toBe("PT423");
+    expect((await err(as(U1, (t) => t`UPDATE fin_transactions SET category='Receita comum' WHERE id=${r.transaction_id}`)))?.code).toBe("PT423");
+    expect((await err(as(U1, (t) => t`UPDATE fin_transactions SET description='Outra compra' WHERE id=${p.transaction_id}`)))?.code).toBe("PT423");
     expect(await balance()).toBe(before);
   });
 
